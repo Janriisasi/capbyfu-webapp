@@ -1,0 +1,224 @@
+import React, { useState, useEffect } from "react";
+import AdminLayout from "../../components/adminLayout";
+import { supabase } from "../../lib/supabase";
+
+const AdminFinancials = () => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({
+    totalOnline: 0,
+    totalPaid: 0,
+    totalPending: 0,
+    totalCollection: 0,
+  });
+
+  useEffect(() => {
+    fetchFinancials();
+  }, []);
+
+  const fetchFinancials = async () => {
+    const { data: delegates } = await supabase
+      .from("delegates")
+      .select(
+        "id, church_id, payment_method, payment_status, include_merch, churches(id, name, circuit, registration_fee, merch_fee)",
+      );
+
+    if (!delegates) return;
+
+    // Group by church
+    const churchMap = {};
+    delegates.forEach((d) => {
+      const church = d.churches;
+      if (!church) return;
+      const key = church.id;
+      if (!churchMap[key]) {
+        churchMap[key] = {
+          church_id: key,
+          name: church.name,
+          circuit: church.circuit,
+          fee: church.registration_fee || 160,
+          merchFee: church.merch_fee || 200,
+          total: 0,
+          paid: 0,
+          pending: 0,
+          onlineAmount: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+        };
+      }
+
+      const amount =
+        churchMap[key].fee + (d.include_merch ? churchMap[key].merchFee : 0);
+      churchMap[key].total++;
+
+      if (d.payment_status === "Paid") {
+        churchMap[key].paid++;
+        churchMap[key].paidAmount += amount;
+        churchMap[key].onlineAmount += amount;
+      } else {
+        churchMap[key].pending++;
+      }
+
+      churchMap[key].totalAmount += amount;
+    });
+
+    const rows = Object.values(churchMap).sort(
+      (a, b) => b.paidAmount - a.paidAmount,
+    );
+    setData(rows);
+
+    const totals = rows.reduce(
+      (acc, r) => ({
+        totalOnline: acc.totalOnline + r.onlineAmount,
+        totalPaid: acc.totalPaid + r.paidAmount,
+        totalPending: acc.totalPending + (r.totalAmount - r.paidAmount),
+        totalCollection: acc.totalCollection + r.paidAmount,
+      }),
+      { totalOnline: 0, totalPaid: 0, totalPending: 0, totalCollection: 0 },
+    );
+
+    setSummary(totals);
+    setLoading(false);
+  };
+
+  return (
+    <AdminLayout title="Financial Reports">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        {[
+          {
+            label: "Total Collected",
+            value: `₱${summary.totalCollection.toLocaleString()}`,
+            color: "text-green-400",
+          },
+          {
+            label: "Online Collections",
+            value: `₱${summary.totalOnline.toLocaleString()}`,
+            color: "text-blue-400",
+          },
+          {
+            label: "Pending Amount",
+            value: `₱${summary.totalPending.toLocaleString()}`,
+            color: "text-yellow-400",
+          },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="bg-[#0A1614] border border-[#C5C5C5]/15 rounded-xl p-5"
+          >
+            <p className="text-[#C5C5C5]/60 text-xs font-bold uppercase tracking-wider mb-2">
+              {s.label}
+            </p>
+            <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per church breakdown */}
+      <div className="bg-[#0A1614] border border-[#C5C5C5]/15 rounded-xl overflow-hidden">
+        <div className="p-6 border-b border-[#C5C5C5]/15">
+          <h3 className="font-bold text-[#F1F1F1] text-lg">
+            Per Church Financial Breakdown
+          </h3>
+        </div>
+        {loading ? (
+          <div className="p-8 text-center text-[#C5C5C5]/60">Loading...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-[#C5C5C5]/5 text-[#C5C5C5]/60 text-[10px] uppercase tracking-wider font-bold">
+                <tr>
+                  <th className="px-6 py-3">Church</th>
+                  <th className="px-6 py-3">Circuit</th>
+                  <th className="px-6 py-3">Total Delegates</th>
+                  <th className="px-6 py-3">Paid</th>
+                  <th className="px-6 py-3">Pending</th>
+                  <th className="px-6 py-3">Online Collections (₱)</th>
+                  <th className="px-6 py-3">Total Collected (₱)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#C5C5C5]/10">
+                {data.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-8 text-center text-[#C5C5C5]/60"
+                    >
+                      No financial data yet
+                    </td>
+                  </tr>
+                ) : (
+                  data.map((row) => (
+                    <tr
+                      key={row.church_id}
+                      className="hover:bg-[#C5C5C5]/5 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-sm text-[#F1F1F1]">
+                          {row.name}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-[#C5C5C5]/70 font-bold">
+                        {row.circuit}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-[#F1F1F1] font-bold">
+                        {row.total}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-green-400 font-bold text-sm">
+                          {row.paid}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-yellow-400 font-bold text-sm">
+                          {row.pending}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-blue-400 font-bold">
+                        {row.onlineAmount > 0
+                          ? `₱${row.onlineAmount.toLocaleString()}`
+                          : "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[#F1F1F1] font-black text-sm">
+                          ₱{row.paidAmount.toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-[#C5C5C5]/10 border-t border-[#C5C5C5]/20">
+                <tr>
+                  <td
+                    className="px-6 py-4 font-black text-[#F1F1F1]"
+                    colSpan={2}
+                  >
+                    TOTAL
+                  </td>
+                  <td className="px-6 py-4 text-[#F1F1F1] font-black">
+                    {data.reduce((s, r) => s + r.total, 0)}
+                  </td>
+                  <td className="px-6 py-4 text-green-400 font-black">
+                    {data.reduce((s, r) => s + r.paid, 0)}
+                  </td>
+                  <td className="px-6 py-4 text-yellow-400 font-black">
+                    {data.reduce((s, r) => s + r.pending, 0)}
+                  </td>
+                  <td className="px-6 py-4 text-blue-400 font-black">
+                    ₱{summary.totalOnline.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 text-[#F1F1F1] font-black text-lg">
+                    ₱{summary.totalCollection.toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
+  );
+};
+
+export default AdminFinancials;
