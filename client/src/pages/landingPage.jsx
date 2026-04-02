@@ -2259,7 +2259,7 @@ const CIRCUIT_META = {
 const CAMP_VIDEOS = [
   {
     type: "local",
-    src: "assets/capbyfu.mp4",
+    src: "https://pub-f17ec93f80ac41a08d6109e1465414a6.r2.dev/camp-videos.mp4",
     poster: "assets/capbyfu.jpg",
     title: "CapBYFU Camp Compilation",
     year: "2025",
