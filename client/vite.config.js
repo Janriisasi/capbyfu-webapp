@@ -12,10 +12,10 @@ export default defineConfig({
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     },
   },
-  // server: {
-  //   port: 8080,
-  //   allowedHosts: [
-  //     'charlyn-thankworthy-unshrewdly.ngrok-free.dev'
-  //   ]
-  // }
+  server: {
+    port: 8080,
+    allowedHosts: [
+      'charlyn-thankworthy-unshrewdly.ngrok-free.dev'
+    ]
+  }
 })

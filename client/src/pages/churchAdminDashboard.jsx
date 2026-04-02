@@ -133,7 +133,7 @@ const ROLES = ["Camper", "Facilitator", "Camp Staff", "Guardian", "Pastor"];
 const PAYMENT_METHODS = ["GCash", "GoTyme"];
 const SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
-const EditDelegateModal = ({ delegate, onClose, onSave }) => {
+const EditDelegateModal = ({ delegate, onClose, onSave, driveLink }) => {
   const [form, setForm] = useState({
     full_name: delegate.full_name || "",
     age: delegate.age || "",
@@ -145,8 +145,12 @@ const EditDelegateModal = ({ delegate, onClose, onSave }) => {
     include_merch: delegate.include_merch || false,
     shirt_size: delegate.shirt_size || "",
     shirt_color: delegate.shirt_color || "",
+    consent_url: delegate.consent_url || null,
+    payment_proof_url: delegate.payment_proof_url || null,
   });
   const [saving, setSaving] = useState(false);
+  const [consentFile, setConsentFile] = useState(null);
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
 
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -168,29 +172,51 @@ const EditDelegateModal = ({ delegate, onClose, onSave }) => {
     const finalPaymentStatus = isFree ? "Paid" : form.payment_status;
     const finalPaymentMethod = isFree ? "Free" : form.payment_method;
 
-    const { error } = await supabase
-      .from("delegates")
-      .update({
-        full_name: form.full_name.trim(),
-        age: parseInt(form.age),
-        contact_number: form.contact_number.trim(),
-        guardian_name: form.guardian_name.trim(),
-        role: form.role,
-        payment_method: finalPaymentMethod,
-        payment_status: finalPaymentStatus,
-        include_merch: form.include_merch,
-        shirt_size: form.include_merch ? form.shirt_size : null,
-        shirt_color: form.include_merch ? form.shirt_color.trim() : null,
-      })
-      .eq("id", delegate.id);
-    setSaving(false);
-    if (error) {
-      toast.error("Failed to save changes");
-      return;
+    const updateData = {
+      full_name: form.full_name.trim(),
+      age: parseInt(form.age),
+      contact_number: form.contact_number.trim(),
+      guardian_name: form.guardian_name.trim(),
+      role: form.role,
+      payment_method: finalPaymentMethod,
+      payment_status: finalPaymentStatus,
+      include_merch: form.include_merch,
+      shirt_size: form.include_merch ? form.shirt_size : null,
+      shirt_color: form.include_merch ? form.shirt_color.trim() : null,
+    };
+
+    try {
+      // Handle Consent Upload
+      if (consentFile) {
+        const { uploadFile } = await import("../lib/supabase");
+        const path = `consent/${delegate.church_id}/${Date.now()}_${consentFile.name}`;
+        const url = await uploadFile("consent-forms", path, consentFile, false);
+        updateData.consent_url = url;
+      }
+
+      // Handle Payment Proof Upload
+      if (paymentProofFile) {
+        const { uploadFile } = await import("../lib/supabase");
+        const path = `payments/${delegate.church_id}/${Date.now()}.webp`;
+        const url = await uploadFile("payment-proofs", path, paymentProofFile, true);
+        updateData.payment_proof_url = url;
+      }
+
+      const { error } = await supabase
+        .from("delegates")
+        .update(updateData)
+        .eq("id", delegate.id);
+
+      if (error) throw error;
+
+      toast.success("Delegate updated!");
+      onSave();
+      onClose();
+    } catch (err) {
+      toast.error("Failed to save changes: " + err.message);
+    } finally {
+      setSaving(false);
     }
-    toast.success("Delegate updated!");
-    onSave();
-    onClose();
   };
 
   return (
@@ -387,6 +413,87 @@ const EditDelegateModal = ({ delegate, onClose, onSave }) => {
               </div>
             )}
           </div>
+
+          {/* Individual Photo Redirect */}
+          {driveLink && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5 flex items-center justify-between gap-4">
+               <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Individual Photo</h4>
+                  <p className="text-[#C5C5C5]/60 text-xs">Upload participant photo to GDrive folder</p>
+               </div>
+               <a 
+                 href={driveLink}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+               >
+                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                 </svg>
+                 Open GDrive
+               </a>
+            </div>
+          )}
+
+          {/* Documents */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#C5C5C5]/40 mb-3 border-b border-[#C5C5C5]/10 pb-2">
+              Registration Documents
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              {/* Consent Form */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#C5C5C5]/50 flex items-center justify-between">
+                  <span>Parental Consent Form</span>
+                  {form.consent_url && <span className="text-green-500 lowercase font-normal italic">Uploaded</span>}
+                </label>
+                <div 
+                  onClick={() => document.getElementById('edit-consent-upload').click()}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${consentFile ? 'border-green-500/40 bg-green-500/5' : 'border-[#C5C5C5]/15 hover:border-[#C5C5C5]/30 bg-[#010101]'}`}
+                >
+                  <svg className={`w-6 h-6 mx-auto mb-1 ${consentFile ? 'text-green-400' : 'text-[#C5C5C5]/20'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-[10px] font-bold text-[#C5C5C5]/60 uppercase leading-tight">
+                    {consentFile ? consentFile.name : (form.consent_url ? 'Replace Consent Form' : 'Upload Consent Form')}
+                  </p>
+                  <input 
+                    id="edit-consent-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept=".pdf,image/*"
+                    onChange={(e) => setConsentFile(e.target.files[0])}
+                  />
+                </div>
+              </div>
+
+              {/* Payment Proof */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#C5C5C5]/50 flex items-center justify-between">
+                  <span>Proof of Payment</span>
+                  {form.payment_proof_url && <span className="text-green-500 lowercase font-normal italic">Uploaded</span>}
+                </label>
+                <div 
+                  onClick={() => document.getElementById('edit-payment-upload').click()}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${paymentProofFile ? 'border-green-500/40 bg-green-500/5' : 'border-[#C5C5C5]/15 hover:border-[#C5C5C5]/30 bg-[#010101]'}`}
+                >
+                  <svg className={`w-6 h-6 mx-auto mb-1 ${paymentProofFile ? 'text-green-400' : 'text-[#C5C5C5]/20'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-[10px] font-bold text-[#C5C5C5]/60 uppercase leading-tight">
+                    {paymentProofFile ? paymentProofFile.name : (form.payment_proof_url ? 'Replace Payment Proof' : 'Upload Payment Proof')}
+                  </p>
+                  <input 
+                    id="edit-payment-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={(e) => setPaymentProofFile(e.target.files[0])}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
@@ -517,6 +624,11 @@ const ChurchAdminDashboard = () => {
   const [settings, setSettings] = useState({
     registration_fee: 160,
     merch_fee: 200,
+    drive_link: "",
+    church_fee: 0,
+    church_fee_payment_url: null,
+    church_fee_status: "Pending",
+    staff_discount_fee: null,
   });
   const [paymentInfo, setPaymentInfo] = useState({ name: "", number: "", qrUrl: "" });
   const [consentTemplateUrl, setConsentTemplateUrl] = useState("");
@@ -540,7 +652,7 @@ const ChurchAdminDashboard = () => {
 
     const { data: s } = await supabase
       .from("churches")
-      .select("registration_fee, merch_fee, circuit, approval_status")
+      .select("registration_fee, merch_fee, staff_discount_fee, circuit, approval_status, drive_link, church_fee, church_fee_payment_url, church_fee_status")
       .eq("id", churchAdmin.churchId)
       .single();
 
@@ -604,6 +716,33 @@ const ChurchAdminDashboard = () => {
     fetchDelegates();
   };
 
+  const handleChurchFeeUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const toastId = toast.loading("Uploading church fee proof...");
+    try {
+      const { uploadFile } = await import("../lib/supabase");
+      const path = `church-fees/${churchAdmin.churchId}/${Date.now()}.webp`;
+      const url = await uploadFile("payment-proofs", path, file, true);
+
+      const { error } = await supabase
+        .from("churches")
+        .update({
+          church_fee_payment_url: url,
+          church_fee_status: "Pending" // Reset to pending on re-upload
+        })
+        .eq("id", churchAdmin.churchId);
+
+      if (error) throw error;
+
+      toast.success("Church fee proof uploaded successfully!", { id: toastId });
+      fetchDelegates();
+    } catch (err) {
+      toast.error("Upload failed: " + err.message, { id: toastId });
+    }
+  };
+
   const stats = delegates.reduce(
     (acc, d) => {
       acc.total++;
@@ -614,8 +753,14 @@ const ChurchAdminDashboard = () => {
       acc.staff += d.role === "Camp Staff" ? 1 : 0;
       acc.guardians += d.role === "Guardian" ? 1 : 0;
       acc.pastors += d.role === "Pastor" ? 1 : 0;
-      acc.collection +=
-        settings.registration_fee + (d.include_merch ? settings.merch_fee : 0);
+      
+      let regFee = settings.registration_fee;
+      if (d.role === "Pastor" || d.role === "Guardian") regFee = 0;
+      else if ((d.role === "Camp Staff" || d.role === "Facilitator") && settings.staff_discount_fee != null) {
+        regFee = settings.staff_discount_fee;
+      }
+
+      acc.collection += regFee + (d.include_merch ? settings.merch_fee : 0);
       return acc;
     },
     {
@@ -627,7 +772,7 @@ const ChurchAdminDashboard = () => {
       staff: 0,
       guardians: 0,
       pastors: 0,
-      collection: 0,
+      collection: settings.church_fee || 0, // start with church fee
     },
   );
 
@@ -858,6 +1003,70 @@ const ChurchAdminDashboard = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                  {/* Church Fee Display */}
+                    <div className="bg-[#C5C5C5]/5 border border-[#C5C5C5]/10 rounded-xl px-4 py-3 relative group/fee">
+                      <div className="flex items-center justify-between gap-4 mb-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-red-400">
+                          Church Fee
+                        </p>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
+                          settings.church_fee_status === "Paid" ? "bg-green-500/20 text-green-400" :
+                          settings.church_fee_status === "Invalid" ? "bg-red-500/20 text-red-400" :
+                          "bg-amber-500/20 text-amber-400"
+                        }`}>
+                          {settings.church_fee_status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-xl font-black text-[#F1F1F1]">
+                            ₱{(settings.church_fee || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        {settings.church_fee_status !== "Paid" && (
+                          <div className="flex items-center gap-1.5">
+                            <input 
+                              type="file" 
+                              id="church-fee-upload" 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={handleChurchFeeUpload}
+                            />
+                            <button
+                              onClick={() => document.getElementById('church-fee-upload').click()}
+                              className="p-1 text-[#C5C5C5]/40 hover:text-red-400 transition-colors"
+                              title={settings.church_fee_payment_url ? "Re-upload Proof" : "Upload Proof"}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                              </svg>
+                            </button>
+                            {settings.church_fee_payment_url && (
+                              <button
+                                onClick={() => setViewerImage({ url: settings.church_fee_payment_url, title: "Church Fee Proof" })}
+                                className="p-1 text-[#C5C5C5]/40 hover:text-blue-400 transition-colors"
+                                title="View Current Proof"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {settings.church_fee_status === "Paid" && settings.church_fee_payment_url && (
+                           <button
+                             onClick={() => setViewerImage({ url: settings.church_fee_payment_url, title: "Church Fee Proof" })}
+                             className="p-1 text-green-400/40 hover:text-green-400 transition-colors"
+                             title="View Proof"
+                           >
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                             </svg>
+                           </button>
+                        )}
+                      </div>
+                    </div>
                     <div className="bg-[#C5C5C5]/5 border border-[#C5C5C5]/10 rounded-xl px-4 py-3">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-[#C5C5C5]/40 mb-0.5">
                         Delegates Encoded
@@ -940,18 +1149,44 @@ const ChurchAdminDashboard = () => {
                     Download the official consent form template. Print and have parents/guardians of delegates under 18 sign it, then upload the signed copy during registration.
                   </p>
                 </div>
-                <a
-                  href={consentTemplateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 font-bold text-xs rounded-xl transition-colors"
+                <button
+                  onClick={async () => {
+                    const toastId = toast.loading("Downloading...");
+                    try {
+                      const response = await fetch(consentTemplateUrl);
+                      if (!response.ok) throw new Error("Download failed");
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.style.display = "none";
+                      a.href = url;
+                      
+                      let filename = "Consent_Form_Template.pdf";
+                      const urlParts = consentTemplateUrl.split("/");
+                      const lastPart = urlParts[urlParts.length - 1];
+                      if (lastPart && lastPart.includes(".")) {
+                        filename = lastPart.split("?")[0];
+                      }
+                      
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                      toast.success("Downloaded successfully!", { id: toastId });
+                    } catch (error) {
+                      console.error("Download failed:", error);
+                      window.open(consentTemplateUrl, "_blank");
+                      toast.error("Opened in new tab due to an error.", { id: toastId });
+                    }
+                  }}
+                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                   </svg>
                   Download
-                </a>
+                </button>
               </div>
             )}
 
@@ -1077,8 +1312,16 @@ const ChurchAdminDashboard = () => {
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                 d.payment_status === "Paid"
-                                  ? "bg-green-500/10 text-green-400"
-                                  : "bg-yellow-500/10 text-yellow-400"
+                                ? "bg-green-500/10 text-green-400"
+                                : d.payment_status === "Pending"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : d.payment_status === "Invalid Consent"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Invalid Payment"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Missing / Invalid Picture"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-red-500/10 text-red-400"
                               }`}
                             >
                               {d.payment_status}
@@ -1207,6 +1450,7 @@ const ChurchAdminDashboard = () => {
             delegate={editDelegate}
             onClose={() => setEditDelegate(null)}
             onSave={fetchDelegates}
+            driveLink={settings.drive_link}
           />
         )}
       </AnimatePresence>

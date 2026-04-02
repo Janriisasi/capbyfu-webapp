@@ -25,7 +25,7 @@ const ORG_DATA = {
   CABYF: {
     name: "CABYF",
     fullName: "Circuit A Baptist Youth Fellowship",
-    logo: "/assets/cabyf.jpg",
+    logo: "/assets/CircuitA.png",
     circuit: "Circuit A",
     description:
       "CABYF (Circuit A Baptist Youth Fellowship) is a community of young believers from Baptist churches within Circuit A who are united by faith, fellowship, and service. Formed to strengthen the spiritual lives of Baptist youth, CABYF provides opportunities for young people to gather for worship, leadership training, outreach, and fellowship activities. Through camps, assemblies, and ministry programs, CABYF encourages the youth to grow in their relationship with God, build meaningful friendships, and develop a heart for serving their churches and communities. It continues to inspire a new generation of Christian leaders who live out their faith with purpose and dedication.",
@@ -444,8 +444,7 @@ const CampTimeline = () => {
             Camp History
           </h2>
           <p className="text-[#C5C5C5]/50 text-sm max-w-xl mx-auto">
-            A decade of faith, fellowship, and transformation — reliving the
-            journey of CapBYFU camps from 2016 to 2025.
+            A decade of faith, fellowship, and transformation — reliving the journey of CapBYFU camps, conferences, and assemblies from 2016 to 2025.
           </p>
         </motion.div>
 
@@ -695,8 +694,6 @@ const CampCountdown = ({ targetDate, label }) => {
               year: "numeric",
               month: "long",
               day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
             })}
           </motion.p>
         )}
@@ -855,7 +852,7 @@ const LandingPage = () => {
               />
             </div>
             <div className="absolute -bottom-6 -right-6 bg-[#C5C5C5] p-8 rounded-2xl shadow-xl hidden lg:block">
-              <p className="text-[#010101] text-3xl font-black">25+</p>
+              <p className="text-[#010101] text-3xl font-black">58</p>
               <p className="text-[#010101]/80 text-sm font-medium">
                 Years of Impact
               </p>
@@ -874,20 +871,20 @@ const LandingPage = () => {
             </h2>
             <div className="w-20 h-1.5 bg-[#C5C5C5] rounded-full"></div>
             <p className="text-lg text-[#C5C5C5] leading-relaxed">
-              Capiz Baptist Youth Fellowship Union (CapBYFU) is a dedicated
-              faith-based organization committed to the holistic development of
-              youth across the province.
+              Capiz Baptist Youth Fellowship Union (CapBYFU) is a youth-led,
+              non-funded faith-based organization committed to the holistic
+              development of young people across the province.
             </p>
             <p className="text-lg text-[#C5C5C5] leading-relaxed">
               We believe that the youth are not just the future, but the vibrant
               present of the church. Through our diverse programs, we equip
-              every member with the spiritual foundation and practical skills
+              every member with both spiritual foundations and practical skills
               needed to navigate the modern world with integrity and purpose.
             </p>
             <div className="grid grid-cols-2 gap-6 mt-4">
               {[
                 "Spiritual Growth",
-                "Leadership Dev",
+                "Leadership Development",
                 "Community Service",
                 "Fellowship",
               ].map((item) => (
@@ -952,7 +949,7 @@ const LandingPage = () => {
               </p>
             </SpotlightCard>
 
-            {/* Goal 2 - Unit Unity */}
+            {/* Goal 2 - Christian Unity */}
             <SpotlightCard
               className="!bg-[#0A1614] !rounded-2xl !border-[#C5C5C5]/10 hover:!border-[#C5C5C5]/30 transition-all group"
               spotlightColor="rgba(255, 255, 255, 0.2)"
@@ -969,7 +966,7 @@ const LandingPage = () => {
                 <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               <h3 className="text-xl font-bold text-[#F1F1F1] mb-3">
-                Unit Unity
+                Christian Unity
               </h3>
               <p className="text-[#C5C5C5] text-sm leading-relaxed">
                 Strengthening the bond between different fellowship units across
@@ -1506,7 +1503,7 @@ const LandingPage = () => {
             <div className="bg-[#0A1614] rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all flex flex-col border border-[#C5C5C5]/10">
               <div className="h-48 relative overflow-hidden">
                 <img
-                  src="/assets/cabyf.jpg"
+                  src="/assets/CircuitA.png"
                   alt="CABYF Logo"
                   className="w-full h-full object-cover"
                 />
@@ -1519,8 +1516,9 @@ const LandingPage = () => {
                   CABYF
                 </h3>
                 <p className="text-[#C5C5C5] text-sm mb-6 flex-1">
-                  The Council of Area Baptist Youth Fellowships, coordinating
-                  efforts across different geographical sectors of our region.
+                  CABYF (Circuit A Baptist Youth Fellowship) is a community of
+                  young believers from Baptist churches within Circuit A who are
+                  united by faith, fellowship, and service...
                 </p>
                 <button
                   onClick={() => setSelectedOrg(ORG_DATA.CABYF)}
@@ -1548,8 +1546,9 @@ const LandingPage = () => {
                   CLBYC
                 </h3>
                 <p className="text-[#C5C5C5] text-sm mb-6 flex-1">
-                  The Conference of Local Baptist Youth Chapters, focusing on
-                  ground-level engagement and church-based youth empowerment.
+                  CLBYC (Central Lowland Baptist Youth Circuit) represents the
+                  Baptist youth from churches located in the central lowland
+                  areas of Capiz...
                 </p>
                 <button
                   onClick={() => setSelectedOrg(ORG_DATA.CLBYC)}
@@ -1577,8 +1576,9 @@ const LandingPage = () => {
                   CCBYF
                 </h3>
                 <p className="text-[#C5C5C5] text-sm mb-6 flex-1">
-                  The Creative Circle of Baptist Youth Fellowship, unleashing
-                  the artistic and musical talents of our members for worship.
+                  CCBYF (Circuit C Baptist Youth Fellowship) is a fellowship of
+                  Baptist youth from churches within Circuit C who come together
+                  to grow in faith, leadership, and service...
                 </p>
                 <button
                   onClick={() => setSelectedOrg(ORG_DATA.CCBYF)}
@@ -1709,7 +1709,7 @@ const LandingPage = () => {
             custom={1.5}
             className="text-center text-[#C5C5C5]/30 text-xs font-bold mt-8 uppercase tracking-widest"
           >
-            Available for pre-order
+            Available for pre-orders
           </motion.p>
         </div>
       </section>

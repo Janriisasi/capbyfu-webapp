@@ -132,9 +132,10 @@ const CustomDropdown = ({
   );
 };
 
-const ContextMenu = ({ delegate, onClose, onDelete, onTogglePayment, direction = "down" }) => {
+const ChurchFeeStatusMenu = ({ church, onClose, onUpdateStatus }) => {
   const ref = useRef(null);
-  const isPaid = delegate?.payment_status === "Paid";
+  const currentStatus = church?.church_fee_status || "Pending";
+
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) onClose();
@@ -143,37 +144,107 @@ const ContextMenu = ({ delegate, onClose, onDelete, onTogglePayment, direction =
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const options = [
+    { label: "Paid",            value: "Paid",                      icon: "check_circle",    color: "text-green-400", bg: "bg-green-400" },
+    { label: "Pending",         value: "Pending",                   icon: "schedule",        color: "text-amber-400", bg: "bg-amber-400" },
+    { label: "Invalid Proof",   value: "Invalid Proof of Payment",  icon: "error",           color: "text-red-400",   bg: "bg-red-400" },
+  ];
+
   return (
     <div
       ref={ref}
-      className={`absolute right-0 z-50 bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl shadow-2xl py-1 min-w-[170px] ${
-        direction === "up" ? "bottom-8" : "top-8"
-      }`}
+      className="absolute left-0 top-full mt-2 z-[60] bg-[#0A1614] border border-[#C5C5C5]/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] py-2.5 min-w-[210px] backdrop-blur-xl overflow-hidden"
     >
-      <button
-        onClick={onTogglePayment}
-        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[#C5C5C5] hover:bg-[#C5C5C5]/15 transition-colors"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
+      <div className="px-4 py-2 border-b border-[#C5C5C5]/10 mb-1.5 grow">
+        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#C5C5C5]/30">Update Church Fee</p>
+      </div>
+      {options.map((opt) => {
+        const isActive = currentStatus === opt.value;
+        return (
+          <button
+            key={opt.value}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdateStatus(church.id, opt.value);
+              onClose();
+            }}
+            className={`flex items-center justify-between w-full px-4 py-2.5 text-xs transition-all hover:bg-[#C5C5C5]/10 group ${
+              isActive ? "bg-[#C5C5C5]/5 text-[#F1F1F1]" : "text-[#C5C5C5]/70"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)] ${opt.bg} ${isActive ? "scale-110" : "scale-100 opacity-60"} transition-all`} />
+              <span className={`font-bold tracking-wide ${isActive ? "" : "group-hover:text-[#C5C5C5]"}`}>{opt.label}</span>
+            </div>
+            {isActive && (
+              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const ContextMenu = ({ delegate, onClose, onDelete, onUpdateStatus, direction = "down", showDelete = true }) => {
+  const ref = useRef(null);
+  const currentStatus = delegate?.payment_status;
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const statuses = [
+    { label: "Paid", value: "Paid", icon: "check_circle", color: "text-green-400" },
+    { label: "Pending", value: "Pending", icon: "schedule", color: "text-amber-400" },
+    { label: "Invalid Consent", value: "Invalid Consent", icon: "assignment_late", color: "text-red-400" },
+    { label: "Invalid Payment", value: "Invalid Payment", icon: "payments", color: "text-red-400" },
+    { label: "Missing / Invalid Picture", value: "Missing / Invalid Picture", icon: "image_not_supported", color: "text-red-400" },
+  ];
+
+  return (
+    <div
+      ref={ref}
+      className={`absolute right-0 top-full mt-1.5 z-50 bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl shadow-2xl py-2 min-w-[190px]`}
+    >
+      <p className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#C5C5C5]/40 mb-1">Update Status</p>
+      {statuses.map((s) => {
+        const isActive = currentStatus === s.value || (currentStatus?.split(", ").includes(s.value));
+        return (
+          <button
+            key={s.value}
+          onClick={(e) => {
+            e.stopPropagation();
+            onUpdateStatus(delegate, s.value);
+          }}
+          className={`flex items-center justify-between w-full px-4 py-2 text-sm transition-colors hover:bg-[#C5C5C5]/10 ${
+            isActive ? "text-[#F1F1F1] bg-[#C5C5C5]/5" : "text-[#C5C5C5]/70"
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-          />
-        </svg>
-        Toggle Payment
-      </button>
-      {isPaid ? (
-        <div className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[#C5C5C5]/30 cursor-not-allowed">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-          </svg>
+          <div className="flex items-center gap-3">
+             <span className={`material-symbols-outlined text-[18px] ${s.color}`}>{s.icon}</span>
+             <span className={isActive ? "font-bold" : ""}>{s.label}</span>
+          </div>
+          {isActive && (
+            <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          )}
+        </button>
+        );
+      })}
+
+      <div className="my-1 border-t border-[#C5C5C5]/10" />
+      
+      {!showDelete ? null : currentStatus === "Paid" ? (
+        <div className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[#C5C5C5]/30 cursor-not-allowed italic">
+          <span className="material-symbols-outlined text-[18px]">lock</span>
           Cannot Delete (Paid)
         </div>
       ) : (
@@ -181,20 +252,8 @@ const ContextMenu = ({ delegate, onClose, onDelete, onTogglePayment, direction =
           onClick={onDelete}
           className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-            />
-          </svg>
-          Delete
+          <span className="material-symbols-outlined text-[18px]">delete</span>
+          Delete Delegate
         </button>
       )}
     </div>
@@ -233,6 +292,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [openMenu, setOpenMenu] = useState(null);
   const [openVisitMenu, setOpenVisitMenu] = useState(null);
+  const [openFeeMenu, setOpenFeeMenu] = useState(null); // church id
   const [page, setPage] = useState(0);
   const [viewerImage, setViewerImage] = useState(null); // { url, title }
   const [globalSettings, setGlobalSettings] = useState({
@@ -261,11 +321,11 @@ const AdminDashboard = () => {
     // Stats
     const { data: allDelegates } = await supabase
       .from("delegates")
-      .select("id, church_id, payment_method, payment_status, include_merch");
+      .select("id, church_id, role, payment_method, payment_status, include_merch");
 
     const { data: churchSettings } = await supabase
       .from("churches")
-      .select("id, registration_fee, merch_fee");
+      .select("id, registration_fee, merch_fee, staff_discount_fee, church_fee, church_fee_status");
 
     const settingsMap = (churchSettings || []).reduce((acc, c) => {
       acc[c.id] = c;
@@ -276,7 +336,7 @@ const AdminDashboard = () => {
     const { data: churchData } = await supabase
       .from("churches")
       .select(
-        "id, name, circuit, registration_fee, merch_fee, staff_discount_fee, drive_link",
+        "id, name, circuit, registration_fee, merch_fee, staff_discount_fee, drive_link, church_fee, church_fee_payment_url, church_fee_status",
       );
     setChurches(churchData || []);
 
@@ -291,15 +351,33 @@ const AdminDashboard = () => {
 
       const calcAmount = (d) => {
         const s = settingsMap[d.church_id];
-        return (s?.registration_fee || 160) + (d.include_merch ? (s?.merch_fee || 200) : 0);
+        if (!s) return 0;
+        
+        // Roles with 0 reg fee
+        if (d.role === "Pastor" || d.role === "Guardian") {
+          return d.include_merch ? (s.merch_fee || 200) : 0;
+        }
+        
+        // Roles with potential discount
+        let regFee = s.registration_fee || 160;
+        if ((d.role === "Camp Staff" || d.role === "Facilitator") && s.staff_discount_fee != null) {
+          regFee = s.staff_discount_fee;
+        }
+        
+        return regFee + (d.include_merch ? (s.merch_fee || 200) : 0);
       };
 
       const cashTotal = cashDelegates
         .filter((d) => d.payment_status === "Paid")
         .reduce((sum, d) => sum + calcAmount(d), 0);
+
+      const churchFeesPaid = (churchSettings || [])
+        .filter(c => c.church_fee_status === "Paid")
+        .reduce((sum, c) => sum + (c.church_fee || 0), 0);
+
       const onlineTotal = onlineDelegates
         .filter((d) => d.payment_status === "Paid")
-        .reduce((sum, d) => sum + calcAmount(d), 0);
+        .reduce((sum, d) => sum + calcAmount(d), 0) + churchFeesPaid;
         
       const churchDataMap = (churchData || []).reduce((acc, c) => {
         acc[c.id] = c.name;
@@ -397,32 +475,54 @@ const AdminDashboard = () => {
     setOpenVisitMenu(null);
   };
 
-  const handleTogglePayment = async (delegate) => {
-    const newStatus = delegate.payment_status === "Paid" ? "Pending" : "Paid";
+  const handleUpdateStatus = async (delegate, newStatus) => {
+    let finalStatus = "";
+    const current = delegate.payment_status || "Pending";
+
+    if (newStatus === "Paid" || newStatus === "Pending") {
+      finalStatus = newStatus;
+    } else {
+      let flags =
+        current === "Paid" || current === "Pending"
+          ? []
+          : current.split(", ").filter(Boolean);
+
+      if (flags.includes(newStatus)) {
+        flags = flags.filter((f) => f !== newStatus);
+      } else {
+        flags.push(newStatus);
+      }
+      finalStatus = flags.length > 0 ? flags.join(", ") : "Pending";
+    }
+
     const { error } = await supabase
       .from("delegates")
-      .update({ payment_status: newStatus })
+      .update({ payment_status: finalStatus })
       .eq("id", delegate.id);
+
     if (error) {
       toast.error("Update failed");
       return;
     }
-    toast.success(`Payment marked as ${newStatus}`);
-    setDelegates((prev) =>
+    toast.success(`Status updated to ${finalStatus}`);
+    
+    const updater = (prev) =>
       prev.map((d) =>
-        d.id === delegate.id ? { ...d, payment_status: newStatus } : d,
-      ),
-    );
+        d.id === delegate.id ? { ...d, payment_status: finalStatus } : d
+      );
+
+    setDelegates(updater);
     setVisitingGroups((prev) =>
       prev.map((g) => ({
         ...g,
-        delegates: g.delegates.map((d) =>
-          d.id === delegate.id ? { ...d, payment_status: newStatus } : d
-        ),
+        delegates: updater(g.delegates),
       }))
     );
-    setOpenMenu(null);
-    setOpenVisitMenu(null);
+
+    if (newStatus === "Paid" || newStatus === "Pending") {
+      setOpenMenu(null);
+      setOpenVisitMenu(null);
+    }
   };
 
   const handleDriveLinkUpdate = async (churchId, link) => {
@@ -443,6 +543,18 @@ const AdminDashboard = () => {
     else toast.success("Fee updated");
   };
 
+  const handleChurchFeeStatusUpdate = async (churchId, status) => {
+    const { error } = await supabase
+      .from("churches")
+      .update({ church_fee_status: status })
+      .eq("id", churchId);
+    if (error) toast.error("Update failed");
+    else {
+      toast.success("Church fee status updated");
+      setChurches(prev => prev.map(c => c.id === churchId ? { ...c, church_fee_status: status } : c));
+    }
+  };
+
   const handleBulkFeeUpdate = async (field, value) => {
     // For staff_discount_fee, empty string means remove the discount (null)
     const parsed = value === "" || value === null ? null : parseInt(value);
@@ -451,7 +563,7 @@ const AdminDashboard = () => {
     // staff_discount_fee applies to ALL churches (including Visiting); reg/merch fees skip Visiting
     // Note: Supabase REST blocks unfiltered UPDATEs, so use neq on a dummy non-existent value for "all"
     const query = supabase.from("churches").update({ [field]: updateValue });
-    const { error } = field === "staff_discount_fee"
+    const { error } = (field === "staff_discount_fee" || field === "church_fee")
       ? await query.neq("circuit", "__none__")   // matches all rows (no church has circuit "__none__")
       : await query.neq("circuit", "Visiting");
     if (error) toast.error("Failed to update.");
@@ -459,7 +571,7 @@ const AdminDashboard = () => {
       const label = field === "registration_fee" ? "reg fees" : field === "merch_fee" ? "merch fees" : "staff & facilitator fees";
       toast.success(updateValue === null ? `Staff/facilitator discount cleared (will use reg fee)` : `All ${label} set to ₱${updateValue}`);
       setChurches((prev) => prev.map((c) => {
-        if (field === "staff_discount_fee") return { ...c, [field]: updateValue };
+        if (field === "staff_discount_fee" || field === "church_fee") return { ...c, [field]: updateValue };
         return c.circuit !== "Visiting" ? { ...c, [field]: updateValue } : c;
       }));
     }
@@ -1165,7 +1277,7 @@ const AdminDashboard = () => {
                                   ? "#22c55e"
                                   : pct > 15
                                     ? "#f59e0b"
-                                    : "#f43f5e",
+                                    : "#f59e0b",
                             }}
                           />
                         </div>
@@ -1189,6 +1301,9 @@ const AdminDashboard = () => {
                     { value: "All", label: "All Status" },
                     { value: "Paid", label: "Paid" },
                     { value: "Pending", label: "Pending" },
+                    { value: "Invalid Consent", label: "Invalid Consent" },
+                    { value: "Invalid Payment", label: "Invalid Payment" },
+                    { value: "Missing / Invalid Picture", label: "Missing / Invalid Picture" },
                   ]}
                   placeholder="All Status"
                 />
@@ -1234,7 +1349,11 @@ const AdminDashboard = () => {
                           <p className="text-sm font-bold text-[#F1F1F1]">
                             {d.full_name}
                           </p>
-                          <p className="text-xs text-[#C5C5C5]/60">{d.role}</p>
+                          <div className="mt-1">
+                            <span className="inline-block px-1.5 py-0.5 rounded bg-[#C5C5C5]/10 text-[#C5C5C5]/60 text-[10px] font-bold uppercase whitespace-nowrap">
+                              {d.role}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-xs text-[#C5C5C5]/70 truncate max-w-[120px]">
                           {d.churches?.name}
@@ -1277,7 +1396,15 @@ const AdminDashboard = () => {
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               d.payment_status === "Paid"
                                 ? "bg-green-500/10 text-green-400"
-                                : "bg-yellow-500/10 text-yellow-400"
+                                : d.payment_status === "Pending"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : d.payment_status === "Invalid Consent"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Invalid Payment"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Missing / Invalid Picture"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-[#C5C5C5]/10 text-[#C5C5C5]"
                             }`}
                           >
                             {d.payment_status}
@@ -1304,7 +1431,7 @@ const AdminDashboard = () => {
                               delegate={d}
                               onClose={() => setOpenMenu(null)}
                               onDelete={() => handleDelete(d.id)}
-                              onTogglePayment={() => handleTogglePayment(d)}
+                              onUpdateStatus={handleUpdateStatus}
                             />
                           )}
                         </td>
@@ -1377,7 +1504,7 @@ const AdminDashboard = () => {
                             <th className="px-4 py-2">Name</th>
                             <th className="px-4 py-2">Role</th>
                             <th className="px-4 py-2">Payment</th>
-                            <th className="px-4 py-2">Status</th>
+                            <th className="px-4 py-2 text-center">Status</th>
                             <th className="px-4 py-2 text-right">Actions</th>
                           </tr>
                         </thead>
@@ -1385,7 +1512,11 @@ const AdminDashboard = () => {
                           {vDelegates.map((d) => (
                             <tr key={d.id} className="hover:bg-[#C5C5C5]/5 transition-colors">
                               <td className="px-4 py-3 text-sm font-bold text-[#F1F1F1]">{d.full_name}</td>
-                              <td className="px-4 py-3 text-xs text-[#C5C5C5]/60">{d.role}</td>
+                               <td className="px-4 py-3">
+                                <span className="inline-block px-1.5 py-0.5 rounded bg-[#C5C5C5]/10 text-[#C5C5C5]/60 text-[10px] font-bold uppercase whitespace-nowrap">
+                                  {d.role}
+                                </span>
+                              </td>
                               <td className="px-4 py-3">
                                 {d.payment_proof_url ? (
                                   <button
@@ -1401,17 +1532,42 @@ const AdminDashboard = () => {
                                   <span className="text-xs text-[#C5C5C5]/30 italic">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 text-center relative">
                                 <button
-                                  onClick={() => handleTogglePayment(d)}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase transition-all ${
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenu(null);
+                                    setOpenVisitMenu(openVisitMenu === d.id ? null : d.id);
+                                  }}
+                                  className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
                                     d.payment_status === "Paid"
-                                      ? "bg-green-500/10 text-green-400 hover:bg-yellow-500/10 hover:text-yellow-400"
-                                      : "bg-yellow-500/10 text-yellow-400 hover:bg-green-500/10 hover:text-green-400"
+                                      ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                                      : d.payment_status === "Pending"
+                                      ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                                      : d.payment_status === "Invalid Consent"
+                                      ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                      : d.payment_status === "Invalid Payment"
+                                      ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                      : d.payment_status === "Missing / Invalid Picture"
+                                      ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                      : "bg-[#C5C5C5]/10 text-[#C5C5C5] hover:bg-[#C5C5C5]/20"
                                   }`}
                                 >
                                   {d.payment_status}
+                                  <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                  </svg>
                                 </button>
+                                {openVisitMenu === d.id && (
+                                  <ContextMenu
+                                    delegate={d}
+                                    onClose={() => setOpenVisitMenu(null)}
+                                    onDelete={() => handleDelete(d.id)}
+                                    onUpdateStatus={handleUpdateStatus}
+                                    direction="up"
+                                    showDelete={false}
+                                  />
+                                )}
                               </td>
                               <td className="px-4 py-3 text-right">
                                 {d.payment_status === "Paid" ? (
@@ -1528,6 +1684,12 @@ const AdminDashboard = () => {
                 onApply={handleBulkFeeUpdate}
                 allowEmpty
               />
+              <BulkFeeInput
+                label="Church Fee (₱)"
+                field="church_fee"
+                defaultValue={churches.find(c => c.circuit !== "Visiting")?.church_fee || 200}
+                onApply={handleBulkFeeUpdate}
+              />
             </div>
           </div>
 
@@ -1538,19 +1700,26 @@ const AdminDashboard = () => {
                 <tr>
                   <th className="px-6 py-3">Church</th>
                   <th className="px-6 py-3">Circuit</th>
-                  <th className="px-6 py-3">Reg Fee (₱)</th>
-                  <th className="px-6 py-3">Merch Fee (₱)</th>
-                  <th className="px-6 py-3">Staff/Facilitator Fee (₱)</th>
-                  <th className="px-6 py-3">Drive Link</th>
+                  <th className="px-6 py-3">Church Fee (₱)</th>
+                  <th className="px-6 py-3">Fee Status</th>
+                  <th className="px-6 py-3">Fee Proof</th>
+                  <th className="px-6 py-3 text-center">Reg Fee</th>
+                  <th className="px-6 py-3 text-center">Merch Fee</th>
+                  <th className="px-6 py-3 text-center">Staff Fee</th>
+                  <th className="px-6 py-3 text-right">Drive Link</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#C5C5C5]/10">
-                {churches.filter(c => c.circuit !== "Visiting").map((church) => (
+                {churches.map((church) => (
                   <ChurchSettingsRow
                     key={church.id}
                     church={church}
                     onDriveUpdate={handleDriveLinkUpdate}
                     onFeeUpdate={handleFeeUpdate}
+                    onStatusUpdate={handleChurchFeeStatusUpdate}
+                    onViewImage={(url) => setViewerImage({ url, title: "Church Fee Proof" })}
+                    openFeeMenu={openFeeMenu}
+                    setOpenFeeMenu={setOpenFeeMenu}
                   />
                 ))}
               </tbody>
@@ -1598,32 +1767,88 @@ const BulkFeeInput = ({ label, field, defaultValue, onApply, placeholder, allowE
   );
 };
 
-const ChurchSettingsRow = ({ church, onDriveUpdate, onFeeUpdate }) => {
+const ChurchSettingsRow = ({ church, onDriveUpdate, onFeeUpdate, onStatusUpdate, onViewImage, openFeeMenu, setOpenFeeMenu }) => {
   const [link, setLink] = useState(church.drive_link || "");
+
+  const status = church.church_fee_status || "Pending";
+  const statusColor = status === "Paid" ? "green" : status === "Invalid Proof of Payment" ? "red" : "amber";
 
   return (
     <tr className="hover:bg-[#C5C5C5]/5 transition-colors">
       <td className="px-6 py-3 text-sm font-bold text-[#F1F1F1] max-w-[200px] truncate">
-        {church.name}
+        <div className="flex items-center gap-2">
+          {church.circuit === "Visiting" && (
+            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" title="Visiting Church"></span>
+          )}
+          {church.name}
+        </div>
       </td>
       <td className="px-6 py-3 text-xs text-[#C5C5C5]/70 font-bold">
         {church.circuit}
       </td>
       <td className="px-6 py-3">
-        <span className="text-sm font-black text-[#F1F1F1]">₱{church.registration_fee ?? 160}</span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-sm font-black text-[#F1F1F1]">₱{church.church_fee ?? 0}</span>
+        </div>
       </td>
-      <td className="px-6 py-3">
-        <span className="text-sm font-black text-[#F1F1F1]">₱{church.merch_fee ?? 200}</span>
-      </td>
-      <td className="px-6 py-3">
-        {church.staff_discount_fee != null ? (
-          <span className="text-sm font-black text-blue-400">₱{church.staff_discount_fee}</span>
-        ) : (
-          <span className="text-xs text-[#C5C5C5]/30 italic">same as reg fee</span>
+      <td className="px-6 py-3 relative">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenFeeMenu(openFeeMenu === church.id ? null : church.id);
+          }}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+            statusColor === "green" ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20" :
+            statusColor === "red" ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20" :
+            "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+          }`}
+        >
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            statusColor === "green" ? "bg-green-400" : statusColor === "red" ? "bg-red-400" : "bg-amber-400"
+          }`} />
+          {status === "Invalid Proof of Payment" ? "Invalid Proof" : status}
+          <svg className={`w-3 h-3 transition-transform ${openFeeMenu === church.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+        {openFeeMenu === church.id && (
+          <ChurchFeeStatusMenu
+            church={church}
+            onClose={() => setOpenFeeMenu(null)}
+            onUpdateStatus={onStatusUpdate}
+          />
         )}
       </td>
       <td className="px-6 py-3">
-        <div className="flex items-center gap-2">
+        {church.church_fee_payment_url ? (
+          <button
+            onClick={() => onViewImage(church.church_fee_payment_url)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#C5C5C5]/10 hover:bg-[#C5C5C5]/20 border border-[#C5C5C5]/20 text-[#C5C5C5] rounded text-[10px] font-black uppercase tracking-widest transition-all group"
+          >
+            <svg className="w-3 h-3 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Review
+          </button>
+        ) : (
+          <span className="text-[10px] font-black text-[#C5C5C5]/20 uppercase tracking-widest italic">No Proof</span>
+        )}
+      </td>
+      <td className="px-6 py-3 text-center">
+        <span className="text-sm font-black text-[#F1F1F1]">₱{church.registration_fee}</span>
+      </td>
+      <td className="px-6 py-3 text-center">
+        <span className="text-sm font-black text-[#F1F1F1]">₱{church.merch_fee}</span>
+      </td>
+      <td className="px-6 py-3 text-center">
+        {church.staff_discount_fee != null ? (
+          <span className="text-sm font-black text-blue-400">₱{church.staff_discount_fee}</span>
+        ) : (
+          <span className="text-[10px] text-[#C5C5C5]/30 italic uppercase font-bold">Standard</span>
+        )}
+      </td>
+      <td className="px-6 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
           <input
             type="url"
             value={link}

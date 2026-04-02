@@ -19,47 +19,61 @@ const AdminFinancials = () => {
   const fetchFinancials = async () => {
     const { data: delegates } = await supabase
       .from("delegates")
-      .select(
-        "id, church_id, payment_method, payment_status, include_merch, churches(id, name, circuit, registration_fee, merch_fee)",
-      );
+      .select("id, church_id, role, payment_method, payment_status, include_merch");
 
-    if (!delegates) return;
+    const { data: churches } = await supabase
+      .from("churches")
+      .select("id, name, circuit, registration_fee, merch_fee, staff_discount_fee, church_fee, church_fee_status");
+
+    if (!churches) return;
 
     // Group by church
     const churchMap = {};
-    delegates.forEach((d) => {
-      const church = d.churches;
-      if (!church) return;
-      const key = church.id;
-      if (!churchMap[key]) {
-        churchMap[key] = {
-          church_id: key,
-          name: church.name,
-          circuit: church.circuit,
-          fee: church.registration_fee || 160,
-          merchFee: church.merch_fee || 200,
-          total: 0,
-          paid: 0,
-          pending: 0,
-          onlineAmount: 0,
-          totalAmount: 0,
-          paidAmount: 0,
-        };
+    churches.forEach((c) => {
+      const isPaid = c.church_fee_status === "Paid";
+      const fee = c.church_fee || 0;
+      churchMap[c.id] = {
+        church_id: c.id,
+        name: c.name,
+        circuit: c.circuit,
+        church_fee: fee,
+        church_fee_status: c.church_fee_status,
+        total: 0,
+        paid: 0,
+        pending: 0,
+        onlineAmount: isPaid ? fee : 0, // Church fee is usually online
+        totalAmount: fee,
+        paidAmount: isPaid ? fee : 0,
+        // For individual calculations
+        registration_fee: c.registration_fee || 160,
+        merch_fee: c.merch_fee || 200,
+        staff_discount_fee: c.staff_discount_fee
+      };
+    });
+
+    (delegates || []).forEach((d) => {
+      const cm = churchMap[d.church_id];
+      if (!cm) return;
+
+      let regFee = cm.registration_fee;
+      if (d.role === "Pastor" || d.role === "Guardian") {
+        regFee = 0;
+      } else if ((d.role === "Camp Staff" || d.role === "Facilitator") && cm.staff_discount_fee != null) {
+        regFee = cm.staff_discount_fee;
       }
 
-      const amount =
-        churchMap[key].fee + (d.include_merch ? churchMap[key].merchFee : 0);
-      churchMap[key].total++;
+      const amount = regFee + (d.include_merch ? cm.merch_fee : 0);
+      cm.total++;
 
       if (d.payment_status === "Paid") {
-        churchMap[key].paid++;
-        churchMap[key].paidAmount += amount;
-        churchMap[key].onlineAmount += amount;
+        cm.paid++;
+        cm.paidAmount += amount;
+        cm.onlineAmount += amount;
       } else {
-        churchMap[key].pending++;
+        cm.pending++;
       }
 
-      churchMap[key].totalAmount += amount;
+      cm.totalAmount += amount;
     });
 
     const rows = Object.values(churchMap).sort(
@@ -90,11 +104,6 @@ const AdminFinancials = () => {
             label: "Total Collected",
             value: `₱${summary.totalCollection.toLocaleString()}`,
             color: "text-green-400",
-          },
-          {
-            label: "Online Collections",
-            value: `₱${summary.totalOnline.toLocaleString()}`,
-            color: "text-blue-400",
           },
           {
             label: "Pending Amount",
@@ -130,10 +139,10 @@ const AdminFinancials = () => {
                 <tr>
                   <th className="px-6 py-3">Church</th>
                   <th className="px-6 py-3">Circuit</th>
+                  <th className="px-6 py-3">Church Fee (₱)</th>
                   <th className="px-6 py-3">Total Delegates</th>
                   <th className="px-6 py-3">Paid</th>
                   <th className="px-6 py-3">Pending</th>
-                  <th className="px-6 py-3">Online Collections (₱)</th>
                   <th className="px-6 py-3">Total Collected (₱)</th>
                 </tr>
               </thead>
@@ -161,6 +170,18 @@ const AdminFinancials = () => {
                       <td className="px-6 py-4 text-xs text-[#C5C5C5]/70 font-bold">
                         {row.circuit}
                       </td>
+                      <td className="px-6 py-4 text-xs font-bold">
+                        {row.church_fee > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[#F1F1F1]">₱{row.church_fee.toLocaleString()}</span>
+                            <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded w-fit ${
+                              row.church_fee_status === "Paid" ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"
+                            }`}>
+                              {row.church_fee_status}
+                            </span>
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td className="px-6 py-4 text-sm text-[#F1F1F1] font-bold">
                         {row.total}
                       </td>
@@ -173,11 +194,6 @@ const AdminFinancials = () => {
                         <span className="text-yellow-400 font-bold text-sm">
                           {row.pending}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-blue-400 font-bold">
-                        {row.onlineAmount > 0
-                          ? `₱${row.onlineAmount.toLocaleString()}`
-                          : "—"}
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-[#F1F1F1] font-black text-sm">
@@ -196,6 +212,9 @@ const AdminFinancials = () => {
                   >
                     TOTAL
                   </td>
+                  <td className="px-6 py-4 text-[#C5C5C5]/40 font-bold">
+                    {/* Church Fee Col */}
+                  </td>
                   <td className="px-6 py-4 text-[#F1F1F1] font-black">
                     {data.reduce((s, r) => s + r.total, 0)}
                   </td>
@@ -204,9 +223,6 @@ const AdminFinancials = () => {
                   </td>
                   <td className="px-6 py-4 text-yellow-400 font-black">
                     {data.reduce((s, r) => s + r.pending, 0)}
-                  </td>
-                  <td className="px-6 py-4 text-blue-400 font-black">
-                    ₱{summary.totalOnline.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 text-[#F1F1F1] font-black text-lg">
                     ₱{summary.totalCollection.toLocaleString()}

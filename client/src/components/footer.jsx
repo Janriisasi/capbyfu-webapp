@@ -265,6 +265,14 @@ const Footer = () => {
                   YouTube
                 </a>
               </li>
+              <li>
+                <a
+                  className="hover:text-[#F1F1F1] transition-colors"
+                  href="https://www.threads.com/@capbyfupage?xmt=AQF0XhnOqBN-rFQP2hSpttHOPJVunVjrX8XW3zkXq6krfpc"
+                >
+                  Threads
+                </a>
+              </li>
             </ul>
           </div>
         </div>

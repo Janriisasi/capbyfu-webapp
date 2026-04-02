@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
 import DOMPurify from "dompurify";
 import { supabase } from "../lib/supabase";
+import PixelTransition from "../components/imageanimation/pixelimageTransition";
+import SpotlightCard from "../components/cardAnimation/spotlightCard";
+import { Lens } from "../components/lens/lens";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -359,7 +362,7 @@ const AnnouncementModal = ({ ann, onClose }) => {
 
           {/* Excerpt (styled as a pull quote) */}
           {ann.excerpt && (
-            <p className="text-[#C5C5C5]/80 text-base leading-relaxed mb-6 italic border-l-2 border-[#C5C5C5]/25 pl-4">
+            <p className="text-[#C5C5C5]/80 text-base leading-relaxed mb-6 italic border-l-2 border-[#C5C5C5]/25 pl-4 whitespace-pre-wrap">
               {ann.excerpt}
             </p>
           )}
@@ -367,14 +370,14 @@ const AnnouncementModal = ({ ann, onClose }) => {
           {/* Full content */}
           {ann.content ? (
             <div
-              className="text-[#C5C5C5]/70 text-sm leading-relaxed
+              className="text-[#C5C5C5]/70 text-sm leading-relaxed whitespace-pre-wrap
                 [&_b]:font-bold [&_strong]:font-bold
                 [&_i]:italic [&_em]:italic
                 [&_u]:underline
                 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
                 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
                 [&_li]:text-[#C5C5C5]/70
-                [&_p]:mb-2"
+                [&_p]:mb-4 [&_div]:mb-4"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ann.content) }}
             />
           ) : (
@@ -582,7 +585,7 @@ const AnnouncementsPage = () => {
                           {ann.title}
                         </h3>
                         {ann.excerpt && (
-                          <p className="text-sm text-[#C5C5C5]/60 line-clamp-2 mb-3">
+                          <p className="text-sm text-[#C5C5C5]/60 line-clamp-2 mb-3 whitespace-pre-wrap">
                             {ann.excerpt}
                           </p>
                         )}

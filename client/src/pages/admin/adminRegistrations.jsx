@@ -169,6 +169,7 @@ const DelegateModal = ({ delegate, onClose, onTogglePayment, onViewImage }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <InfoRow label="Full Name" value={delegate.full_name} />
+          <InfoRow label="Nickname" value={delegate.nickname || "N/A"} />
           <InfoRow label="Age" value={delegate.age} />
           <InfoRow label="Contact" value={delegate.contact_number || "N/A"} />
           <InfoRow label="Guardian" value={delegate.guardian_name || "N/A"} />
@@ -251,18 +252,18 @@ const DelegateModal = ({ delegate, onClose, onTogglePayment, onViewImage }) => {
             <p className="text-xs text-[#C5C5C5]/60 mb-1">Payment Status</p>
             <span
               className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold uppercase ${
-                delegate.payment_status === "Paid"
-                  ? "bg-green-500/10 text-green-400"
-                  : "bg-yellow-500/10 text-yellow-400"
+                delegate.payment_status === "Paid"            ? "bg-green-500/10 text-green-400"   :
+                delegate.payment_status === "Pending"         ? "bg-yellow-500/10 text-yellow-400" :
+                (delegate.payment_status?.includes("Invalid") || delegate.payment_status?.includes("Missing")) ? "bg-red-500/10 text-red-400" :
+                "bg-red-500/10 text-red-400"
               }`}
             >
-              {delegate.payment_status}
+              {delegate.payment_status || "Pending"}
             </span>
           </div>
           <button
             onClick={() => {
               onTogglePayment(delegate);
-              onClose();
             }}
             className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
               delegate.payment_status === "Paid"
@@ -310,6 +311,66 @@ const ApprovalBadge = ({ status }) => {
   );
 };
 
+// ── Status Context Menu (mirrors adminDashboard) ──────────────────────────────
+const StatusContextMenu = ({ delegate, onClose, onUpdateStatus }) => {
+  const ref = useRef(null);
+  const currentStatus = delegate?.payment_status;
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const statuses = [
+    { label: "Paid",            value: "Paid",            color: "text-green-400",  dot: "bg-green-400"  },
+    { label: "Pending",         value: "Pending",         color: "text-amber-400",  dot: "bg-amber-400"  },
+    { label: "Invalid Consent", value: "Invalid Consent", color: "text-red-400",    dot: "bg-red-400"    },
+    { label: "Invalid Payment", value: "Invalid Payment", color: "text-red-400",    dot: "bg-red-400"    },
+    { label: "Missing / Invalid Picture", value: "Missing / Invalid Picture", color: "text-red-400", dot: "bg-red-400" },
+  ];
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-1.5 z-50 bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl shadow-2xl py-2 min-w-[200px]"
+    >
+      <p className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#C5C5C5]/40 mb-1">
+        Update Status
+      </p>
+      {statuses.map((s) => {
+        const isActive = currentStatus === s.value || (currentStatus?.split(", ").includes(s.value));
+        return (
+          <button
+            key={s.value}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdateStatus(delegate, s.value);
+            }}
+            className={`flex items-center justify-between w-full px-4 py-2 text-sm transition-colors hover:bg-[#C5C5C5]/10 ${
+              isActive
+                ? "text-[#F1F1F1] bg-[#C5C5C5]/5"
+                : "text-[#C5C5C5]/70"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+              <span className={isActive ? "font-bold" : ""}>{s.label}</span>
+            </div>
+            {isActive && (
+              <svg className="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 const AdminRegistrations = () => {
   const [delegates, setDelegates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -320,6 +381,7 @@ const AdminRegistrations = () => {
   const [selectedDelegate, setSelectedDelegate] = useState(null);
   const [page, setPage] = useState(0);
   const [viewerImage, setViewerImage] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null); // delegate id with open context menu
 
   // Visiting church approvals
   const [visitingChurches, setVisitingChurches] = useState([]);
@@ -388,20 +450,51 @@ const AdminRegistrations = () => {
 
   const handleTogglePayment = async (delegate) => {
     const newStatus = delegate.payment_status === "Paid" ? "Pending" : "Paid";
+    await handleUpdateStatus(delegate, newStatus);
+  };
+
+  const handleUpdateStatus = async (delegate, newStatus) => {
+    let finalStatus = "";
+    const current = delegate.payment_status || "Pending";
+
+    if (newStatus === "Paid" || newStatus === "Pending") {
+      finalStatus = newStatus;
+    } else {
+      let flags =
+        current === "Paid" || current === "Pending"
+          ? []
+          : current.split(", ").filter(Boolean);
+
+      if (flags.includes(newStatus)) {
+        flags = flags.filter((f) => f !== newStatus);
+      } else {
+        flags.push(newStatus);
+      }
+      finalStatus = flags.length > 0 ? flags.join(", ") : "Pending";
+    }
+
     const { error } = await supabase
       .from("delegates")
-      .update({ payment_status: newStatus })
+      .update({ payment_status: finalStatus })
       .eq("id", delegate.id);
+
     if (error) {
       toast.error("Update failed");
       return;
     }
-    toast.success(`Marked as ${newStatus}`);
+    toast.success(`Status updated to ${finalStatus}`);
+    
     setDelegates((prev) =>
       prev.map((d) =>
-        d.id === delegate.id ? { ...d, payment_status: newStatus } : d,
+        d.id === delegate.id ? { ...d, payment_status: finalStatus } : d,
       ),
     );
+    if (selectedDelegate?.id === delegate.id) {
+      setSelectedDelegate((prev) => ({ ...prev, payment_status: finalStatus }));
+    }
+    if (newStatus === "Paid" || newStatus === "Pending") {
+      setOpenMenu(null);
+    }
   };
 
   // ── Client-side search filter ───────────────────────────────────────────────
@@ -430,7 +523,7 @@ const AdminRegistrations = () => {
     try {
       const { data: all, error } = await supabase
         .from("delegates")
-        .select("*, churches(name, circuit, registration_fee, merch_fee)")
+        .select("*, churches(name, circuit, registration_fee, merch_fee, staff_discount_fee, church_fee, church_fee_status)")
         .order("created_at", { ascending: true });
       if (error) throw error;
 
@@ -466,22 +559,22 @@ const AdminRegistrations = () => {
       };
 
       const GROUPS = [
-        { label: "PERSONAL INFO", start: 1,  end: 6,  bg: SBG.personal },
-        { label: "PAYMENT",       start: 7,  end: 10, bg: SBG.payment  },
-        { label: "MERCHANDISE",   start: 11, end: 14, bg: SBG.merch    },
-        { label: "DOCUMENTS",     start: 15, end: 17, bg: SBG.docs     },
-        { label: "META",          start: 18, end: 19, bg: SBG.meta     },
+        { label: "PERSONAL INFO", start: 1,  end: 7,  bg: SBG.personal },
+        { label: "PAYMENT",       start: 8,  end: 11, bg: SBG.payment  },
+        { label: "MERCHANDISE",   start: 12, end: 15, bg: SBG.merch    },
+        { label: "DOCUMENTS",     start: 16, end: 18, bg: SBG.docs     },
+        { label: "META",          start: 19, end: 20, bg: SBG.meta     },
       ];
 
       const COL_HEADERS = [
-        "#", "Full Name", "Age", "Role", "Contact Number", "Guardian Name",
+        "#", "Full Name", "Nickname", "Age", "Role", "Contact Number", "Guardian Name",
         "Payment Status", "Payment Method", "Registration Fee (₱)", "Registered At",
         "Ordered Merch?", "Shirt Size", "Shirt Color",
         "Consent Form", "Payment Proof", "ID Image",
         "Church", "Circuit",
       ];
 
-      const COL_WIDTHS = [5, 30, 6, 15, 18, 24, 16, 16, 22, 22, 14, 12, 14, 14, 16, 16, 14, 36, 13];
+      const COL_WIDTHS = [5, 30, 15, 6, 15, 18, 24, 16, 16, 22, 22, 14, 12, 14, 14, 16, 16, 14, 36];
 
       const applyGroupRows = (ws, dataRowStart) => {
         GROUPS.forEach(({ label, start, end, bg }) => {
@@ -502,17 +595,27 @@ const AdminRegistrations = () => {
         ws.getRow(dataRowStart - 1).height = 26;
       };
 
-      const buildDelegateRow = (ws, d, idx, fee, merchFee) => {
-        const isPaid = d.payment_status === "Paid";
+      const buildDelegateRow = (ws, d, idx) => {
+        const church = d.churches;
+        const status = d.payment_status;
+        const isPaid = status === "Paid";
+        const isInvalid = status && (status.includes("Invalid") || status.includes("Missing"));
+        
+        let fee = church?.registration_fee || 160;
+        if (d.role === "Pastor" || d.role === "Guardian") fee = 0;
+        else if ((d.role === "Camp Staff" || d.role === "Facilitator") && church?.staff_discount_fee != null) fee = church.staff_discount_fee;
+        
+        const merchFee = church?.merch_fee || 200;
         const totalFee = fee + (d.include_merch ? merchFee : 0);
         const r = ws.addRow([
           idx,
           d.full_name,
+          d.nickname || "",
           d.age,
           d.role,
           d.contact_number || "",
           d.guardian_name || "",
-          d.payment_status,
+          status || "Pending",
           d.payment_method || "Online",
           totalFee,
           d.created_at ? new Date(d.created_at).toLocaleString("en-PH") : "",
@@ -527,8 +630,21 @@ const AdminRegistrations = () => {
         ]);
         r.height = 18;
         r.getCell(9).numFmt = "₱#,##0";
-        r.getCell(7).fill = { type: "pattern", pattern: "solid", fgColor: { argb: isPaid ? "FFD1FAE5" : "FFFFF3CD" } };
-        r.getCell(7).font = { bold: true, color: { argb: isPaid ? "FF16A34A" : "FFB45309" }, name: "Arial" };
+
+        // Status coloring
+        let bgColor = "FFFFF3CD"; // Default amber for pending
+        let fgColor = "FFB45309"; 
+
+        if (isPaid) {
+          bgColor = "FFD1FAE5";
+          fgColor = "FF16A34A";
+        } else if (isInvalid) {
+          bgColor = "FFFEE2E2";
+          fgColor = "FFB91C1C";
+        }
+
+        r.getCell(7).fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+        r.getCell(7).font = { bold: true, color: { argb: fgColor }, name: "Arial" };
         r.getCell(14).font = { color: { argb: d.age >= 18 ? "FF9CA3AF" : (d.consent_url ? "FF16A34A" : "FFDC2626") }, name: "Arial" };
         r.getCell(15).font = { color: { argb: d.payment_proof_url ? "FF16A34A" : "FFB45309" }, name: "Arial" };
         r.getCell(16).font = { color: { argb: d.id_image_url ? "FF16A34A" : "FFB45309" }, name: "Arial" };
@@ -554,6 +670,7 @@ const AdminRegistrations = () => {
         { header: "Total Delegates",     key: "total",     width: 18 },
         { header: "Paid",                key: "paid",      width: 10 },
         { header: "Pending",             key: "pending",   width: 12 },
+        { header: "Church Fee (₱)",      key: "churchFee", width: 18 },
         { header: "Merch Orders",        key: "merch",     width: 14 },
         { header: "Total Collected (₱)", key: "collected", width: 22 },
       ];
@@ -562,14 +679,33 @@ const AdminRegistrations = () => {
       let gTotal = 0, gPaid = 0, gPending = 0, gCollected = 0, gMerch = 0;
       churchNames.forEach((church) => {
         const rows = byChurch[church];
-        const fee = rows[0]?.churches?.registration_fee || 160;
-        const merchFee = rows[0]?.churches?.merch_fee || 200;
         const paid = rows.filter((r) => r.payment_status === "Paid").length;
         const pending = rows.length - paid;
         const merch = rows.filter((r) => r.include_merch).length;
-        const collected = rows.filter((r) => r.payment_status === "Paid")
-          .reduce((s, r) => s + fee + (r.include_merch ? merchFee : 0), 0);
-        const row = summaryWs.addRow([church, rows[0]?.churches?.circuit || "", rows.length, paid, pending, merch, collected]);
+        const cSettings = rows[0]?.churches;
+        const churchFee = cSettings?.church_fee || 0;
+        const isChurchFeePaid = cSettings?.church_fee_status === "Paid";
+        
+        const delegateCollection = rows.filter((r) => r.payment_status === "Paid")
+          .reduce((s, r) => {
+            const c = r.churches;
+            let fee = c?.registration_fee || 160;
+            if (r.role === "Pastor" || r.role === "Guardian") fee = 0;
+            else if ((r.role === "Camp Staff" || r.role === "Facilitator") && c?.staff_discount_fee != null) fee = c.staff_discount_fee;
+            return s + fee + (r.include_merch ? (c?.merch_fee || 200) : 0);
+          }, 0);
+        
+        const collected = delegateCollection + (isChurchFeePaid ? churchFee : 0);
+        const row = summaryWs.addRow({
+          church,
+          circuit: rows[0]?.churches?.circuit || "",
+          total: rows.length,
+          paid,
+          pending,
+          churchFee: isChurchFeePaid ? churchFee : `(${churchFee} Pending)`,
+          merch,
+          collected
+        });
         row.getCell("paid").font    = { bold: true, color: { argb: "FF16A34A" }, name: "Arial" };
         row.getCell("pending").font = { bold: true, color: { argb: "FFB45309" }, name: "Arial" };
         row.getCell("merch").font   = { bold: true, color: { argb: "FF7C3AED" }, name: "Arial" };
@@ -589,15 +725,11 @@ const AdminRegistrations = () => {
       let masterIdx = 1;
       churchNames.forEach((church) => {
         const rows = byChurch[church];
-        const fee = rows[0]?.churches?.registration_fee || 160;
-        const merchFee = rows[0]?.churches?.merch_fee || 200;
-        rows.forEach((d) => buildDelegateRow(masterWs, d, masterIdx++, fee, merchFee));
+        rows.forEach((d) => buildDelegateRow(masterWs, d, masterIdx++));
       });
 
       churchNames.forEach((church) => {
         const rows = byChurch[church];
-        const fee = rows[0]?.churches?.registration_fee || 160;
-        const merchFee = rows[0]?.churches?.merch_fee || 200;
         const circuit = rows[0]?.churches?.circuit || "";
         const sheetName = church.replace(/[/\\?*[\]:]/g, "").slice(0, 31);
         const ws = wb.addWorksheet(sheetName);
@@ -623,18 +755,28 @@ const AdminRegistrations = () => {
           applyHeaderStyle(cell, grp?.bg || "FF0A1614");
         });
         ws.getRow(3).height = 26;
-        rows.forEach((d, i) => buildDelegateRow(ws, d, i + 1, fee, merchFee));
+        rows.forEach((d, i) => buildDelegateRow(ws, d, i + 1));
         const paid = rows.filter((r) => r.payment_status === "Paid").length;
         const merch = rows.filter((r) => r.include_merch).length;
+        const cSettings = rows[0]?.churches;
+        const churchFee = cSettings?.church_fee || 0;
+        const isChurchFeePaid = cSettings?.church_fee_status === "Paid";
+
         const collected = rows.filter((r) => r.payment_status === "Paid")
-          .reduce((s, r) => s + fee + (r.include_merch ? merchFee : 0), 0);
+          .reduce((s, r) => {
+            const c = r.churches;
+            let fee = c?.registration_fee || 160;
+            if (r.role === "Pastor" || r.role === "Guardian") fee = 0;
+            else if ((r.role === "Camp Staff" || r.role === "Facilitator") && c?.staff_discount_fee != null) fee = c.staff_discount_fee;
+            return s + fee + (r.include_merch ? (c?.merch_fee || 200) : 0);
+          }, 0) + (isChurchFeePaid ? churchFee : 0);
         ws.addRow([]);
         const totRow = ws.addRow([
           "", `${rows.length} delegate(s)   •   Paid: ${paid}   •   Pending: ${rows.length - paid}   •   Merch: ${merch}`,
-          "", "", "", "", `${paid}/${rows.length} Paid`, "", collected,
-          "", `${merch} orders`, "", "", "", "", "", "", "", "",
+          "", "", "", "", "", `${paid}/${rows.length} Paid`, "", collected,
+          "", `${merch} orders`, "", "", "", "", "", "", "",
         ]);
-        totRow.getCell(9).numFmt = "₱#,##0";
+        totRow.getCell(10).numFmt = "₱#,##0";
         styleTotalsRow(totRow);
       });
 
@@ -856,6 +998,9 @@ const AdminRegistrations = () => {
                 { value: "__all__", label: "All Status" },
                 { value: "Paid", label: "Paid" },
                 { value: "Pending", label: "Pending" },
+                { value: "Invalid Consent", label: "Invalid Consent" },
+                { value: "Invalid Payment", label: "Invalid Payment" },
+                { value: "Missing / Invalid Picture", label: "Missing / Invalid Picture" },
               ]}
               placeholder="All Status"
             />
@@ -890,7 +1035,7 @@ const AdminRegistrations = () => {
           {loading ? (
             <div className="p-8 text-center text-[#C5C5C5]/60">Loading...</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-40">
               <table className="w-full text-left">
                 <thead className="bg-[#C5C5C5]/5 text-[#C5C5C5]/60 text-[10px] uppercase tracking-wider font-bold">
                   <tr>
@@ -934,7 +1079,7 @@ const AdminRegistrations = () => {
                           {d.churches?.name}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-2 py-0.5 rounded-full bg-[#C5C5C5]/10 text-[#C5C5C5] text-[10px] font-bold uppercase">
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-[#C5C5C5]/10 text-[#C5C5C5] text-[10px] font-bold uppercase whitespace-nowrap">
                             {d.role}
                           </span>
                         </td>
@@ -942,21 +1087,25 @@ const AdminRegistrations = () => {
                           {d.age}
                         </td>
                         <td className="px-6 py-4">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTogglePayment(d);
-                            }}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase transition-all ${
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               d.payment_status === "Paid"
-                                ? "bg-green-500/10 text-green-400 hover:bg-yellow-500/10 hover:text-yellow-400"
-                                : "bg-yellow-500/10 text-yellow-400 hover:bg-green-500/10 hover:text-green-400"
+                                ? "bg-green-500/10 text-green-400"
+                                : d.payment_status === "Pending"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : d.payment_status === "Invalid Consent"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Invalid Payment"
+                                ? "bg-red-500/10 text-red-400"
+                                : d.payment_status === "Missing / Invalid Picture"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-red-500/10 text-red-400"
                             }`}
                           >
-                            {d.payment_status}
-                          </button>
+                            {d.payment_status || "Pending"}
+                          </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
                             {d.payment_proof_url && (
                               <button
@@ -988,28 +1137,65 @@ const AdminRegistrations = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDelegate(d);
-                            }}
-                            className="text-[#C5C5C5]/70 hover:text-[#F1F1F1] transition-colors p-1"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* View delegate details */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDelegate(d);
+                              }}
+                              className="text-[#C5C5C5]/70 hover:text-[#F1F1F1] transition-colors p-1"
+                              title="View details"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                                />
+                              </svg>
+                            </button>
+                            {/* Status context menu */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenu(openMenu === d.id ? null : d.id);
+                                }}
+                                className="text-[#C5C5C5]/70 hover:text-[#F1F1F1] hover:bg-[#C5C5C5]/10 transition-colors p-1 rounded-lg"
+                                title="Change status"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <circle cx="12" cy="5" r="1.5" />
+                                  <circle cx="12" cy="12" r="1.5" />
+                                  <circle cx="12" cy="19" r="1.5" />
+                                </svg>
+                              </button>
+                              <AnimatePresence>
+                                {openMenu === d.id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                                    transition={{ duration: 0.12 }}
+                                  >
+                                    <StatusContextMenu
+                                      delegate={d}
+                                      onClose={() => setOpenMenu(null)}
+                                      onUpdateStatus={handleUpdateStatus}
+                                    />
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     ))

@@ -60,11 +60,19 @@ const AdminAddAnnouncement = () => {
             // Populate editor after render
             setTimeout(() => {
               if (editorRef.current) {
+                document.execCommand('defaultParagraphSeparator', false, 'p');
                 editorRef.current.innerHTML = DOMPurify.sanitize(data.content || "");
               }
             }, 0);
           }
         });
+    } else {
+      // For new announcements, also set default separator
+      setTimeout(() => {
+        if (editorRef.current) {
+          document.execCommand('defaultParagraphSeparator', false, 'p');
+        }
+      }, 0);
     }
   }, [id]);
 
@@ -278,6 +286,52 @@ const AdminAddAnnouncement = () => {
                 <label className="block text-sm font-bold mb-2 uppercase tracking-wider text-[#C5C5C5]">
                   Content / Description
                 </label>
+                <div className="bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#C5C5C5]/40 focus-within:border-[#C5C5C5]/40 transition-all">
+                  
+                  {/* Toolbar */}
+                  <div className="flex flex-wrap items-center gap-1 p-2 border-b border-[#C5C5C5]/20 bg-[#C5C5C5]/5">
+                    <button type="button" onClick={() => execCmd('bold')} className={`p-1.5 rounded hover:bg-[#C5C5C5]/20 ${activeFormats.bold ? 'bg-[#C5C5C5]/20 text-[#F1F1F1]' : 'text-[#C5C5C5]'}`}>
+                      <Bold size={16} />
+                    </button>
+                    <button type="button" onClick={() => execCmd('italic')} className={`p-1.5 rounded hover:bg-[#C5C5C5]/20 ${activeFormats.italic ? 'bg-[#C5C5C5]/20 text-[#F1F1F1]' : 'text-[#C5C5C5]'}`}>
+                      <Italic size={16} />
+                    </button>
+                    <button type="button" onClick={() => execCmd('underline')} className={`p-1.5 rounded hover:bg-[#C5C5C5]/20 ${activeFormats.underline ? 'bg-[#C5C5C5]/20 text-[#F1F1F1]' : 'text-[#C5C5C5]'}`}>
+                      <Underline size={16} />
+                    </button>
+                    
+                    <div className="w-px h-4 bg-[#C5C5C5]/20 mx-1" />
+                    
+                    <button type="button" onClick={insertBulletList} className="p-1.5 rounded hover:bg-[#C5C5C5]/20 text-[#C5C5C5]">
+                      <List size={16} />
+                    </button>
+                    <button type="button" onClick={() => execCmd('insertOrderedList')} className="p-1.5 rounded hover:bg-[#C5C5C5]/20 text-[#C5C5C5]">
+                      <ListOrdered size={16} />
+                    </button>
+                    
+                    <div className="w-px h-4 bg-[#C5C5C5]/20 mx-1" />
+                    
+                    <button type="button" onClick={() => execCmd('removeFormat')} className="p-1.5 rounded hover:bg-[#C5C5C5]/20 text-[#C5C5C5]">
+                      <RemoveFormatting size={16} />
+                    </button>
+                  </div>
+                  
+                  {/* Editor Area */}
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={handleEditorInput}
+                    onKeyUp={updateActiveFormats}
+                    onMouseUp={updateActiveFormats}
+                    className="p-4 min-h-[200px] text-[#F1F1F1] outline-none whitespace-pre-wrap
+                      [&_b]:font-bold [&_strong]:font-bold
+                      [&_i]:italic [&_em]:italic
+                      [&_u]:underline
+                      [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                      [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
+                      [&_p]:mb-4 [&_div]:mb-4"
+                  />
+                </div>
               </div>
 
               {/* Submit */}
@@ -427,13 +481,13 @@ const AdminAddAnnouncement = () => {
                     <span>By Admin</span>
                   </div>
                   {form.excerpt && (
-                    <p className="text-[#0A1614]/60 text-sm leading-relaxed italic border-l-2 border-slate-200 pl-3">
+                    <p className="text-[#0A1614]/60 text-sm leading-relaxed italic border-l-2 border-slate-200 pl-3 whitespace-pre-wrap">
                       {form.excerpt}
                     </p>
                   )}
                   {form.content && (
                     <div
-                      className="text-[#0A1614]/70 text-sm leading-relaxed mt-2 border-t border-slate-100 pt-3
+                      className="text-[#0A1614]/70 text-sm leading-relaxed mt-2 border-t border-slate-100 pt-3 whitespace-pre-wrap
                         [&_b]:font-bold [&_strong]:font-bold
                         [&_i]:italic [&_em]:italic
                         [&_u]:underline
@@ -441,7 +495,7 @@ const AdminAddAnnouncement = () => {
                         [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
                         [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
                         [&_li]:text-[#0A1614]/70
-                        [&_p]:mb-1"
+                        [&_p]:mb-4 [&_div]:mb-4"
                       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(form.content) }}
                     />
                   )}

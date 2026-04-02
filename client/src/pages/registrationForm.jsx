@@ -355,6 +355,7 @@ const RegistrationForm = () => {
 
   const [form, setForm] = useState({
     full_name: "",
+    nickname: "",
     age: "",
     contact_number: "",
     guardian_name: "",
@@ -452,6 +453,7 @@ const RegistrationForm = () => {
 
     setForm({
       full_name: "",
+      nickname: "",
       age: "",
       contact_number: "",
       guardian_name: "",
@@ -473,6 +475,7 @@ const RegistrationForm = () => {
     const d = delegatesList[index];
     setForm({
       full_name: d.full_name,
+      nickname: d.nickname || "",
       age: d.age,
       contact_number: d.contact_number,
       guardian_name: d.guardian_name,
@@ -491,21 +494,35 @@ const RegistrationForm = () => {
   const handleSubmitBatch = async () => {
     if (delegatesList.length === 0) return toast.error("No delegates in batch");
 
-    // Check if any delegates need payment (Pastor/Guardian are free)
+    // Free roles: Pastor/Guardian registration fee is waived
+    // BUT if they include_merch, they must pay the merch fee and submit proof
     const freeRoles = ["Pastor", "Guardian"];
     const discountRoles = ["Camp Staff", "Facilitator"];
-    const getEffectiveFee = (role) => {
-      if (freeRoles.includes(role)) return 0;
+
+    const getEffectiveFee = (d) => {
+      const role = d.role;
+      const merchFee = d.include_merch ? (churchSettings.merch_fee || 200) : 0;
+      if (freeRoles.includes(role)) return merchFee; // reg fee is 0, only pay merch if ordered
       const discountFee = churchSettings.staff_discount_fee;
       if (discountRoles.includes(role) && discountFee !== null && discountFee !== undefined && discountFee !== "") {
-        return parseInt(discountFee) ?? 0;
+        return parseInt(discountFee) + merchFee;
       }
-      return parseInt(churchSettings.registration_fee) ?? 160;
+      return (parseInt(churchSettings.registration_fee) ?? 160) + merchFee;
     };
-    const payingDelegates = delegatesList.filter(d => !freeRoles.includes(d.role));
-    const allFree = payingDelegates.length === 0;
+
+    // A delegate needs payment if their total fee > 0
+    const needsPayment = (d) => getEffectiveFee(d) > 0;
+    const anyNeedsPayment = delegatesList.some(needsPayment);
+    const allFree = !anyNeedsPayment;
 
     if (!allFree && ["GCash", "GoTyme"].includes(paymentMethod) && !paymentProofFile) {
+      // Give a specific message if it's only merch causing the payment requirement
+      const onlyMerchPaying = delegatesList
+        .filter(needsPayment)
+        .every(d => freeRoles.includes(d.role) && d.include_merch);
+      if (onlyMerchPaying) {
+        return toast.error("Pastor/Guardian merch orders require proof of payment for the merch fee");
+      }
       return toast.error("Proof of payment is required for online payments");
     }
 
@@ -526,11 +543,12 @@ const RegistrationForm = () => {
           consent_url = await uploadFile("consent-forms", path, d.consentFile, false);
         }
 
-        const isFreeRole = freeRoles.includes(d.role);
+        const isTrulyFree = !needsPayment(d); // free only if reg fee = 0 AND no merch
 
         insertRows.push({
           church_id: churchAdmin.churchId,
           full_name: d.full_name.trim(),
+          nickname: d.nickname?.trim() || null,
           age: parseInt(d.age),
           contact_number: d.contact_number.trim(),
           guardian_name: d.guardian_name.trim(),
@@ -538,20 +556,17 @@ const RegistrationForm = () => {
           include_merch: d.include_merch,
           shirt_color: d.include_merch ? d.shirt_color : null,
           shirt_size: d.include_merch ? d.shirt_size : null,
-          payment_method: isFreeRole ? "Free" : paymentMethod,
-          payment_proof_url: isFreeRole ? null : payment_proof_url,
+          payment_method: isTrulyFree ? "Free" : paymentMethod,
+          payment_proof_url: isTrulyFree ? null : payment_proof_url,
           consent_url,
-          payment_status: isFreeRole ? "Paid" : "Pending",
+          payment_status: isTrulyFree ? "Paid" : "Pending",
         });
       }
 
       const { error } = await supabase.from("delegates").insert(insertRows);
       if (error) throw error;
 
-      const grandTotal = delegatesList.reduce(
-        (acc, d) => acc + getEffectiveFee(d.role) + (d.include_merch ? churchSettings.merch_fee || 200 : 0),
-        0
-      );
+      const grandTotal = delegatesList.reduce((acc, d) => acc + getEffectiveFee(d), 0);
 
       setDelegatesCount((c) => c + delegatesList.length);
       setEstimatedCollection((c) => c + grandTotal);
@@ -574,6 +589,7 @@ const RegistrationForm = () => {
   // Roles that get a discounted fee (if staff_discount_fee is set)
   const DISCOUNT_ROLES = ["Camp Staff", "Facilitator"];
 
+  // Returns the registration fee only (not merch)
   const getRoleFee = (role) => {
     if (FREE_ROLES.includes(role)) return 0;
     const discountFee = churchSettings.staff_discount_fee;
@@ -583,7 +599,9 @@ const RegistrationForm = () => {
     return parseInt(churchSettings.registration_fee) ?? 160;
   };
 
-  const delegatesNeedingPayment = delegatesList.filter(d => !FREE_ROLES.includes(d.role));
+  // A delegate needs payment if reg fee > 0 OR they ordered merch
+  const delegateNeedsPayment = (d) => getRoleFee(d.role) > 0 || d.include_merch;
+  const delegatesNeedingPayment = delegatesList.filter(delegateNeedsPayment);
   const allDelegatesFree = delegatesList.length > 0 && delegatesNeedingPayment.length === 0;
 
   const needsProof = ["GCash", "GoTyme"].includes(paymentMethod) && !allDelegatesFree;
@@ -764,18 +782,33 @@ const RegistrationForm = () => {
                   Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="col-span-1 md:col-span-2">
-                    <label className={labelCls}>Full Name *</label>
-                    <input
-                      type="text"
-                      value={form.full_name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, full_name: e.target.value }))
-                      }
-                      placeholder="Juan Dela Cruz"
-                      className={inputCls}
-                      required
-                    />
+                  <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Full Name *</label>
+                      <input
+                        type="text"
+                        value={form.full_name}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, full_name: e.target.value }))
+                        }
+                        placeholder="Juan Dela Cruz"
+                        className={inputCls}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Nickname (for ID) *</label>
+                      <input
+                        type="text"
+                        value={form.nickname}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, nickname: e.target.value }))
+                        }
+                        placeholder="Juani"
+                        className={inputCls}
+                        required
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className={labelCls}>Age *</label>
@@ -1217,40 +1250,37 @@ const RegistrationForm = () => {
                   <div className="p-4 bg-[#C5C5C5]/5 border border-[#C5C5C5]/10 rounded-xl space-y-2">
                     {/* Per-delegate fee breakdown */}
                     {delegatesList.map((d, i) => {
-                      const fee = getRoleFee(d.role);
-                      const isFree = FREE_ROLES.includes(d.role);
+                      const regFee = getRoleFee(d.role);
+                      const isFreeRole = FREE_ROLES.includes(d.role);
                       const isDiscount = DISCOUNT_ROLES.includes(d.role) && churchSettings.staff_discount_fee != null;
+                      const merchFee = d.include_merch ? (churchSettings.merch_fee || 200) : 0;
                       return (
                         <div key={i} className="flex items-center justify-between text-xs">
                           <span className="text-[#C5C5C5]/60 truncate max-w-[180px]">
                             {d.full_name} <span className="text-[#C5C5C5]/40">({d.role})</span>
                           </span>
-                          <span className={`font-bold ${isFree ? "text-green-400" : isDiscount ? "text-blue-400" : "text-[#F1F1F1]"}`}>
-                            {isFree ? "FREE" : `₱${fee.toLocaleString()}`}
-                            {isDiscount && <span className="text-[9px] text-blue-400/60 ml-1">discount</span>}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`font-bold ${isFreeRole ? "text-green-400" : isDiscount ? "text-blue-400" : "text-[#F1F1F1]"}`}>
+                              {isFreeRole ? "FREE" : `₱${regFee.toLocaleString()}`}
+                              {isDiscount && <span className="text-[9px] text-blue-400/60 ml-1">discount</span>}
+                            </span>
+                            {d.include_merch && (
+                              <span className="text-purple-400 font-bold">
+                                +₱{merchFee.toLocaleString()} merch
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
-                    {delegatesList.filter(d => d.include_merch).length > 0 && (
-                      <div className="flex items-center justify-between border-t border-[#C5C5C5]/10 pt-2">
-                        <span className="text-sm font-medium text-[#C5C5C5]/60">
-                          Total Merch Fees ({delegatesList.filter(d => d.include_merch).length}x)
-                        </span>
-                        <span className="text-sm font-bold text-[#F1F1F1]">
-                          ₱{(delegatesList.filter(d => d.include_merch).length * (churchSettings.merch_fee || 200)).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between border-t border-[#C5C5C5]/10 pt-2">
                       <span className="text-sm font-bold text-[#C5C5C5]">
                         Grand Total
                       </span>
                       <span className="text-xl font-black text-[#F1F1F1]">
-                        ₱{(
-                          delegatesList.reduce((acc, d) => acc + getRoleFee(d.role), 0) +
-                          delegatesList.filter(d => d.include_merch).length * (churchSettings.merch_fee || 200)
-                        ).toLocaleString()}
+                        ₱{delegatesList.reduce((acc, d) => {
+                          return acc + getRoleFee(d.role) + (d.include_merch ? (churchSettings.merch_fee || 200) : 0);
+                        }, 0).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -1329,6 +1359,8 @@ const RegistrationForm = () => {
                   </AnimatePresence>
                 </div>
               </section>
+
+
 
               {/* Submit Batch */}
               <div className="pb-8">

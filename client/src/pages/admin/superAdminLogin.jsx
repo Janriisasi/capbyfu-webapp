@@ -85,6 +85,17 @@ const LoginForm = () => {
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#C5C5C5]/10 rounded-full blur-3xl" />
       </div>
 
+      {/* Top Left Back Button */}
+      <button 
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-50 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#C5C5C5]/40 hover:text-[#C5C5C5] transition-colors group px-4 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm"
+      >
+        <svg className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Home
+      </button>
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
