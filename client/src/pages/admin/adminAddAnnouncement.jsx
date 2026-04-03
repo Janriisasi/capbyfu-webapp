@@ -192,7 +192,7 @@ const AdminAddAnnouncement = () => {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, title: e.target.value }))
                   }
-                  placeholder="e.g. Annual Youth Camp 2024 Registration Now Open"
+                  placeholder="e.g. Annual Youth Camp 2026 Registration Now Open"
                   className="w-full bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl p-3 text-[#F1F1F1] focus:ring-2 focus:ring-[#C5C5C5]/40 focus:border-[#C5C5C5]/40 outline-none"
                   required
                 />

@@ -1385,7 +1385,7 @@ const LandingPage = () => {
                 <div className="h-px flex-1 bg-[#C5C5C5]/20"></div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 {/* Adviser 1 */}
                 <div className="bg-[#F1F1F1] p-1 rounded-xl shadow-md text-center">
                   <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 bg-[#C5C5C5]/20">
@@ -1607,7 +1607,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
               <PixelTransition
                 key={n}

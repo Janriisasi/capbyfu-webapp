@@ -279,7 +279,7 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-[#0A1614] flex flex-col md:flex-row items-center justify-between gap-4 text-xs uppercase tracking-widest font-bold">
-          <p>© 2024 CapBYFU. All Rights Reserved.</p>
+          <p>© 2026 CapBYFU. All Rights Reserved.</p>
           <div className="flex gap-8">
             <button
               onClick={() => setModal("privacy")}
