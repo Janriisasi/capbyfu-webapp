@@ -226,6 +226,30 @@ const AdminAnnouncements = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
+                          onClick={() => {
+                            const url = `${window.location.origin}/announcements?id=${ann.id}`;
+                            navigator.clipboard.writeText(url).then(() =>
+                              toast.success("Link copied!")
+                            );
+                          }}
+                          className="p-2 hover:bg-[#C5C5C5]/15 rounded-lg text-[#C5C5C5]/70 hover:text-[#F1F1F1] transition-colors"
+                          title="Copy Link"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                            />
+                          </svg>
+                        </button>
+                        <button
                           onClick={() =>
                             navigate(`/admin/announcements/edit/${ann.id}`)
                           }

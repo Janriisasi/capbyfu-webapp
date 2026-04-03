@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
+import toast from "react-hot-toast";
 import DOMPurify from "dompurify";
 import { supabase } from "../lib/supabase";
 import PixelTransition from "../components/imageanimation/pixelimageTransition";
@@ -398,8 +399,87 @@ const AnnouncementModal = ({ ann, onClose }) => {
   );
 };
 
+// Three-dots menu for each card
+const CardMenu = ({ ann, onOpen }) => {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const copyLink = (e) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}${window.location.pathname}?id=${ann.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Link copied!");
+    });
+    setOpen(false);
+  };
+
+  const openAnn = (e) => {
+    e.stopPropagation();
+    onOpen(ann);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={menuRef} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="p-1.5 rounded-full hover:bg-[#C5C5C5]/15 text-[#C5C5C5]/60 hover:text-[#F1F1F1] transition-colors"
+        title="More options"
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="5" cy="12" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="19" cy="12" r="1.5" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-8 z-30 bg-[#0D1F1C] border border-[#C5C5C5]/15 rounded-xl shadow-2xl py-1.5 w-44 overflow-hidden"
+          >
+            <button
+              onClick={openAnn}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#C5C5C5] hover:bg-[#C5C5C5]/10 hover:text-[#F1F1F1] transition-colors text-left"
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+              Open Post
+            </button>
+            <button
+              onClick={copyLink}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#C5C5C5] hover:bg-[#C5C5C5]/10 hover:text-[#F1F1F1] transition-colors text-left"
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Copy Link
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const AnnouncementsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [announcements, setAnnouncements] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -409,6 +489,32 @@ const AnnouncementsPage = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedAnn, setSelectedAnn] = useState(null);
   const PAGE_SIZE = 6;
+
+  // Deep-link: open modal if ?id= is in URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    if (!id) return;
+    supabase
+      .from("announcements")
+      .select("*")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => {
+        if (data) setSelectedAnn(data);
+      });
+  }, [location.search]);
+
+  // Clear ?id= from URL when modal closes
+  const handleCloseModal = () => {
+    setSelectedAnn(null);
+    const params = new URLSearchParams(location.search);
+    if (params.has("id")) {
+      params.delete("id");
+      const newSearch = params.toString();
+      navigate(location.pathname + (newSearch ? `?${newSearch}` : ""), { replace: true });
+    }
+  };
 
   useEffect(() => {
     fetchAnnouncements(0, true);
@@ -539,6 +645,10 @@ const AnnouncementsPage = () => {
                       className="group cursor-pointer bg-[#0A1614] rounded-xl overflow-hidden border border-[#C5C5C5]/10 transition-all hover:shadow-xl hover:border-[#C5C5C5]/25"
                     >
                       <div className="aspect-video relative overflow-hidden bg-[#0A1614]">
+                        {/* Three-dots menu */}
+                        <div className="absolute top-3 right-3 z-10">
+                          <CardMenu ann={ann} onOpen={setSelectedAnn} />
+                        </div>
                         {ann.image_url ? (
                           <img
                             alt={ann.title}
@@ -710,7 +820,7 @@ const AnnouncementsPage = () => {
       {selectedAnn && (
         <AnnouncementModal
           ann={selectedAnn}
-          onClose={() => setSelectedAnn(null)}
+          onClose={handleCloseModal}
         />
       )}
     </div>
