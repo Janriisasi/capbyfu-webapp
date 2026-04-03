@@ -211,9 +211,9 @@ const ContextMenu = ({ delegate, onClose, onDelete, onUpdateStatus, direction = 
   return (
     <div
       ref={ref}
-      className={`absolute right-0 top-full mt-1.5 z-50 bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl shadow-2xl py-2 min-w-[190px]`}
+      className={`absolute right-0 top-full mt-1.5 z-50 bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl shadow-2xl py-1.5 min-w-[200px] max-h-72 overflow-y-auto`}
     >
-      <p className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#C5C5C5]/40 mb-1">Update Status</p>
+      <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#C5C5C5]/40">Update Status</p>
       {statuses.map((s) => {
         const isActive = currentStatus === s.value || (currentStatus?.split(", ").includes(s.value));
         return (
@@ -223,16 +223,16 @@ const ContextMenu = ({ delegate, onClose, onDelete, onUpdateStatus, direction = 
             e.stopPropagation();
             onUpdateStatus(delegate, s.value);
           }}
-          className={`flex items-center justify-between w-full px-4 py-2 text-sm transition-colors hover:bg-[#C5C5C5]/10 ${
+          className={`flex items-center justify-between w-full px-3 py-1.5 text-xs transition-colors hover:bg-[#C5C5C5]/10 ${
             isActive ? "text-[#F1F1F1] bg-[#C5C5C5]/5" : "text-[#C5C5C5]/70"
           }`}
         >
-          <div className="flex items-center gap-3">
-             <span className={`material-symbols-outlined text-[18px] ${s.color}`}>{s.icon}</span>
+          <div className="flex items-center gap-2">
+             <span className={`material-symbols-outlined text-[15px] ${s.color}`}>{s.icon}</span>
              <span className={isActive ? "font-bold" : ""}>{s.label}</span>
           </div>
           {isActive && (
-            <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
           )}
@@ -243,16 +243,16 @@ const ContextMenu = ({ delegate, onClose, onDelete, onUpdateStatus, direction = 
       <div className="my-1 border-t border-[#C5C5C5]/10" />
       
       {!showDelete ? null : currentStatus === "Paid" ? (
-        <div className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[#C5C5C5]/30 cursor-not-allowed italic">
-          <span className="material-symbols-outlined text-[18px]">lock</span>
+        <div className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-[#C5C5C5]/30 cursor-not-allowed italic">
+          <span className="material-symbols-outlined text-[15px]">lock</span>
           Cannot Delete (Paid)
         </div>
       ) : (
         <button
           onClick={onDelete}
-          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
         >
-          <span className="material-symbols-outlined text-[18px]">delete</span>
+          <span className="material-symbols-outlined text-[15px]">delete</span>
           Delete Delegate
         </button>
       )}
@@ -1497,7 +1497,7 @@ const AdminDashboard = () => {
                   {/* Mobile: cards, Desktop: table */}
                   <div className="rounded-xl border border-[#C5C5C5]/10 overflow-visible">
                     {/* Desktop table — hidden on mobile */}
-                    <div className="hidden md:block overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto overflow-y-visible">
                       <table className="w-full text-left">
                         <thead className="bg-[#C5C5C5]/5 text-[#C5C5C5]/50 text-[10px] uppercase tracking-wider font-bold">
                           <tr>
@@ -1539,7 +1539,7 @@ const AdminDashboard = () => {
                                     setOpenMenu(null);
                                     setOpenVisitMenu(openVisitMenu === d.id ? null : d.id);
                                   }}
-                                  className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-all max-w-[120px] ${
                                     d.payment_status === "Paid"
                                       ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
                                       : d.payment_status === "Pending"
@@ -1553,8 +1553,10 @@ const AdminDashboard = () => {
                                       : "bg-[#C5C5C5]/10 text-[#C5C5C5] hover:bg-[#C5C5C5]/20"
                                   }`}
                                 >
-                                  {d.payment_status}
-                                  <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                  <span className="truncate">
+                                    {d.payment_status === "Missing / Invalid Picture" ? "Missing Pic" : d.payment_status}
+                                  </span>
+                                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                                   </svg>
                                 </button>
