@@ -4,9 +4,6 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "fra
 import toast from "react-hot-toast";
 import DOMPurify from "dompurify";
 import { supabase } from "../lib/supabase";
-import PixelTransition from "../components/imageanimation/pixelimageTransition";
-import SpotlightCard from "../components/cardAnimation/spotlightCard";
-import { Lens } from "../components/lens/lens";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [

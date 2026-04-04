@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import CountUp from "../../components/countUp-animation/count-up";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell
@@ -1046,19 +1047,25 @@ const AdminDashboard = () => {
           {[
             {
               label: "Total Delegates",
-              value: stats.total,
+              numericValue: stats.total,
+              prefix: "",
+              separator: ",",
               icon: "groups",
               color: "text-[#C5C5C5] bg-[#C5C5C5]/10",
             },
             {
               label: "Estimated Collections",
-              value: `₱${stats.onlineTotal.toLocaleString()}`,
+              numericValue: stats.onlineTotal,
+              prefix: "₱",
+              separator: ",",
               icon: "credit_card",
               color: "text-blue-500 bg-blue-500/10",
             },
             {
               label: "Participating Churches",
-              value: stats.churches,
+              numericValue: stats.churches,
+              prefix: "",
+              separator: "",
               icon: "church",
               color: "text-amber-500 bg-amber-500/10",
             },
@@ -1080,7 +1087,14 @@ const AdminDashboard = () => {
                 {s.label}
               </p>
               <h3 className="text-xl md:text-2xl font-black mt-1 text-[#F1F1F1]">
-                {s.value}
+                {s.prefix}
+                <CountUp
+                  to={s.numericValue}
+                  from={0}
+                  duration={2}
+                  separator={s.separator}
+                  startWhen={!loading}
+                />
               </h3>
             </motion.div>
           ))}
