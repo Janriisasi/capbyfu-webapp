@@ -646,16 +646,16 @@ const CampCountdown = ({ targetDate, label }) => {
               Camp Has Begun! 🎉
             </p>
           ) : (
-            <div className="flex items-start justify-center gap-3 sm:gap-5 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5">
               {units.map((unit, i) => (
                 <React.Fragment key={unit.label}>
-                  <div className="flex flex-col items-center gap-2.5">
+                  <div className="flex flex-col items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-center">
                     <div
                       className="
                         bg-[#0A1614] border border-white/10
                         rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)]
                         px-5 py-5 sm:px-7 sm:py-6
-                        min-w-[64px] sm:min-w-[88px]
+                        min-w-[80px] sm:min-w-[88px]
                         text-center
                         font-black text-[#F1F1F1]
                         text-4xl sm:text-5xl
@@ -665,12 +665,12 @@ const CampCountdown = ({ targetDate, label }) => {
                     >
                       {unit.value}
                     </div>
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#C5C5C5]/40">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#C5C5C5]/40 text-center">
                       {unit.label}
                     </span>
                   </div>
                   {i < units.length - 1 && (
-                    <div className="self-start pt-5 sm:pt-6 text-3xl sm:text-4xl font-black text-[#C5C5C5]/20 select-none">
+                    <div className="hidden sm:block self-start pt-5 sm:pt-6 text-3xl sm:text-4xl font-black text-[#C5C5C5]/20 select-none">
                       :
                     </div>
                   )}
@@ -716,7 +716,7 @@ const LandingPage = () => {
     const fetchAnnouncements = async () => {
       const { data } = await supabase
         .from("announcements")
-        .select("id, title, category, image_url, created_at, excerpt")
+        .select("id, title, category, image_url, created_at, excerpt, author")
         .order("created_at", { ascending: false })
         .limit(3);
       setAnnouncements(data || []);

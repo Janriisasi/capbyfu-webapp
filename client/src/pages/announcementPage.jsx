@@ -313,7 +313,7 @@ const AnnouncementModal = ({ ann, onClose }) => {
                   d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0"
                 />
               </svg>
-              By Admin
+              By {ann.author || "Admin"}
             </span>
             {ann.event_date && (
               <span className="flex items-center gap-1.5 text-[#C5C5C5]/70">
@@ -522,7 +522,7 @@ const AnnouncementsPage = () => {
     setLoading(true);
     let query = supabase
       .from("announcements")
-      .select("id, title, category, image_url, created_at, excerpt, content")
+      .select("id, title, category, image_url, created_at, excerpt, content, author")
       .order("created_at", { ascending: false })
       .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
 
@@ -686,7 +686,7 @@ const AnnouncementsPage = () => {
                             )}
                           </span>
                           <span>•</span>
-                          <span>By Admin</span>
+                          <span>By {ann.author || "Admin"}</span>
                         </div>
                         <h3 className="text-lg font-bold mb-2 text-[#F1F1F1] group-hover:text-[#C5C5C5] transition-colors line-clamp-2">
                           {ann.title}

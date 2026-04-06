@@ -27,6 +27,7 @@ const AdminAddAnnouncement = () => {
     content: "",
     event_date: "",
     event_location: "",
+    author: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -54,6 +55,7 @@ const AdminAddAnnouncement = () => {
               content: data.content || "",
               event_date: data.event_date ? data.event_date.split("T")[0] : "",
               event_location: data.event_location || "",
+              author: data.author || "",
             });
             setExistingImageUrl(data.image_url || "");
             setImagePreview(data.image_url || "");
@@ -141,6 +143,7 @@ const AdminAddAnnouncement = () => {
         content: form.content,
         event_date: form.event_date || null,
         event_location: form.event_location.trim() || null,
+        author: form.author.trim() || "Admin",
         image_url,
       };
 
@@ -195,6 +198,22 @@ const AdminAddAnnouncement = () => {
                   placeholder="e.g. Annual Youth Camp 2026 Registration Now Open"
                   className="w-full bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl p-3 text-[#F1F1F1] focus:ring-2 focus:ring-[#C5C5C5]/40 focus:border-[#C5C5C5]/40 outline-none"
                   required
+                />
+              </div>
+
+              {/* Author */}
+              <div>
+                <label className="block text-sm font-bold mb-2 uppercase tracking-wider text-[#C5C5C5]">
+                  Author / Writer
+                </label>
+                <input
+                  type="text"
+                  value={form.author}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, author: e.target.value }))
+                  }
+                  placeholder="e.g. Juan Dela Cruz (Defaults to 'Admin')"
+                  className="w-full bg-[#0A1614] border border-[#C5C5C5]/20 rounded-xl p-3 text-[#F1F1F1] focus:ring-2 focus:ring-[#C5C5C5]/40 focus:border-[#C5C5C5]/40 outline-none"
                 />
               </div>
 
@@ -478,7 +497,7 @@ const AdminAddAnnouncement = () => {
                       })}
                     </span>
                     <span>•</span>
-                    <span>By Admin</span>
+                    <span>By {form.author || "Admin"}</span>
                   </div>
                   {form.excerpt && (
                     <p className="text-[#0A1614]/60 text-sm leading-relaxed italic border-l-2 border-slate-200 pl-3 whitespace-pre-wrap">
