@@ -882,7 +882,6 @@ const AdminDashboard = () => {
               <span className="text-[#C5C5C5]/60">
                 {new Date(globalSettings.camp_date).toLocaleDateString("en-US", {
                   weekday: "long", year: "numeric", month: "long", day: "numeric",
-                  hour: "2-digit", minute: "2-digit",
                 })}
               </span>
             </p>

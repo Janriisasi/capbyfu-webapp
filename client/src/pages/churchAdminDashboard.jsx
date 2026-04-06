@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/authContext";
 import ImageViewerModal from "../components/imageviewerModal";
+import ExcelJS from "exceljs";
 
 // ── Reusable Custom Dropdown ────────────────────────────────────────────────
 const CustomDropdown = ({
@@ -743,6 +744,218 @@ const ChurchAdminDashboard = () => {
     }
   };
 
+  const handleExport = async () => {
+    if (delegates.length === 0) {
+      toast.error("No delegates to export.");
+      return;
+    }
+    const tid = toast.loading("Preparing export…");
+    try {
+      // Fetch full delegate data for this church only
+      const { data: all, error } = await supabase
+        .from("delegates")
+        .select("*, churches(name, circuit, registration_fee, merch_fee, staff_discount_fee, church_fee, church_fee_status)")
+        .eq("church_id", churchAdmin.churchId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "CapBYFU";
+      wb.created = new Date();
+
+      const applyHeaderStyle = (cell, bgArgb = "FF0A1614") => {
+        cell.font = { bold: true, color: { argb: "FFF1F1F1" }, name: "Arial", size: 10 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = { bottom: { style: "medium", color: { argb: "FF22C55E" } } };
+      };
+      const styleHeaderRow = (row, bgArgb) => {
+        row.eachCell((cell) => applyHeaderStyle(cell, bgArgb));
+        row.height = 28;
+      };
+      const styleTotalsRow = (row) => {
+        row.eachCell((cell) => {
+          cell.font = { bold: true, name: "Arial", size: 10 };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+          cell.border = { top: { style: "medium", color: { argb: "FF22C55E" } } };
+        });
+        row.height = 20;
+      };
+
+      const SBG = {
+        personal: "FF1E3A2F",
+        payment:  "FF1A2E3F",
+        merch:    "FF2E1A3F",
+        docs:     "FF3F2E1A",
+        meta:     "FF2E2E2E",
+      };
+
+      const GROUPS = [
+        { label: "PERSONAL INFO", start: 1,  end: 7,  bg: SBG.personal },
+        { label: "PAYMENT",       start: 8,  end: 11, bg: SBG.payment  },
+        { label: "MERCHANDISE",   start: 12, end: 14, bg: SBG.merch    },
+        { label: "DOCUMENTS",     start: 15, end: 16, bg: SBG.docs     },
+        { label: "META",          start: 17, end: 18, bg: SBG.meta     },
+      ];
+
+      const COL_HEADERS = [
+        "#", "Full Name", "Nickname", "Age", "Role", "Contact Number", "Guardian Name",
+        "Payment Status", "Payment Method", "Registration Fee (₱)", "Registered At",
+        "Ordered Merch?", "Shirt Size", "Shirt Color",
+        "Consent Form", "Payment Proof",
+        "Church", "Circuit",
+      ];
+
+      const COL_WIDTHS = [5, 30, 15, 6, 15, 18, 24, 16, 16, 22, 22, 14, 12, 14, 14, 16, 36, 13];
+
+      const buildDelegateRow = (ws, d, idx) => {
+        const church = d.churches;
+        const status = d.payment_status;
+        const isPaid = status === "Paid";
+        const isInvalid = status && (status.includes("Invalid") || status.includes("Missing"));
+
+        let fee = church?.registration_fee || 160;
+        if (d.role === "Pastor" || d.role === "Guardian") fee = 0;
+        else if ((d.role === "Camp Staff" || d.role === "Facilitator") && church?.staff_discount_fee != null) fee = church.staff_discount_fee;
+
+        const merchFee = church?.merch_fee || 200;
+        const totalFee = fee + (d.include_merch ? merchFee : 0);
+
+        const r = ws.addRow([
+          idx,
+          d.full_name,
+          d.nickname || "",
+          d.age,
+          d.role,
+          d.contact_number || "",
+          d.guardian_name || "",
+          status || "Pending",
+          d.payment_method || "Online",
+          totalFee,
+          d.created_at ? new Date(d.created_at).toLocaleString("en-PH") : "",
+          d.include_merch ? "Yes" : "No",
+          d.shirt_size || "—",
+          d.shirt_color || "—",
+          d.age >= 18 ? "N/A (Adult)" : (d.consent_url ? "✓ Uploaded" : "✗ Missing"),
+          d.payment_proof_url ? "✓ Uploaded" : "✗ Missing",
+          d.churches?.name || "",
+          d.churches?.circuit || "",
+        ]);
+        r.height = 18;
+        r.getCell(10).numFmt = "₱#,##0";
+
+        let bgColor = "FFFFF3CD";
+        let fgColor = "FFB45309";
+        if (isPaid) { bgColor = "FFD1FAE5"; fgColor = "FF16A34A"; }
+        else if (isInvalid) { bgColor = "FFFEE2E2"; fgColor = "FFB91C1C"; }
+
+        r.getCell(8).fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+        r.getCell(8).font = { bold: true, color: { argb: fgColor }, name: "Arial" };
+        r.getCell(15).font = { color: { argb: d.age >= 18 ? "FF9CA3AF" : (d.consent_url ? "FF16A34A" : "FFDC2626") }, name: "Arial" };
+        r.getCell(16).font = { color: { argb: d.payment_proof_url ? "FF16A34A" : "FFB45309" }, name: "Arial" };
+        if (d.include_merch) {
+          r.getCell(12).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDE9FE" } };
+          r.getCell(12).font = { bold: true, color: { argb: "FF7C3AED" }, name: "Arial" };
+        }
+        return r;
+      };
+
+      const churchName = all[0]?.churches?.name || churchAdmin.churchName || "Church";
+      const circuit = all[0]?.churches?.circuit || churchAdmin.circuit || "";
+
+      // ── Summary sheet ──────────────────────────────────────────────────────
+      const summaryWs = wb.addWorksheet("📋 Summary");
+      summaryWs.columns = [
+        { header: "Church",              key: "church",    width: 38 },
+        { header: "Circuit",             key: "circuit",   width: 13 },
+        { header: "Total Delegates",     key: "total",     width: 18 },
+        { header: "Paid",                key: "paid",      width: 10 },
+        { header: "Pending",             key: "pending",   width: 12 },
+        { header: "Merch Orders",        key: "merch",     width: 14 },
+        { header: "Total Collected (₱)", key: "collected", width: 22 },
+      ];
+      styleHeaderRow(summaryWs.getRow(1));
+
+      const paid = all.filter((r) => r.payment_status === "Paid").length;
+      const pending = all.length - paid;
+      const merch = all.filter((r) => r.include_merch).length;
+      const cSettings = all[0]?.churches;
+      const collected = all.filter((r) => r.payment_status === "Paid").reduce((s, r) => {
+        const c = r.churches;
+        let fee = c?.registration_fee || 160;
+        if (r.role === "Pastor" || r.role === "Guardian") fee = 0;
+        else if ((r.role === "Camp Staff" || r.role === "Facilitator") && c?.staff_discount_fee != null) fee = c.staff_discount_fee;
+        return s + fee + (r.include_merch ? (c?.merch_fee || 200) : 0);
+      }, 0);
+
+      const sumRow = summaryWs.addRow({ church: churchName, circuit, total: all.length, paid, pending, merch, collected });
+      sumRow.getCell("paid").font    = { bold: true, color: { argb: "FF16A34A" }, name: "Arial" };
+      sumRow.getCell("pending").font = { bold: true, color: { argb: "FFB45309" }, name: "Arial" };
+      sumRow.getCell("merch").font   = { bold: true, color: { argb: "FF7C3AED" }, name: "Arial" };
+      sumRow.getCell("collected").numFmt = "₱#,##0";
+      sumRow.height = 18;
+
+      const totRow = summaryWs.addRow(["TOTAL", "", all.length, paid, pending, merch, collected]);
+      styleTotalsRow(totRow);
+      totRow.getCell(7).numFmt = "₱#,##0";
+
+      // ── Delegates sheet ────────────────────────────────────────────────────
+      const sheetName = churchName.replace(/[/\\?*[\]:]/g, "").slice(0, 31);
+      const ws = wb.addWorksheet(`📊 ${sheetName}`.slice(0, 31));
+      ws.columns = COL_WIDTHS.map((w, i) => ({ key: `c${i}`, width: w }));
+
+      // Title row
+      const titleRow = ws.getRow(1);
+      titleRow.getCell(1).value = `${churchName}  •  ${circuit}`;
+      titleRow.getCell(1).font  = { bold: true, size: 13, color: { argb: "FF0A1614" }, name: "Arial" };
+      titleRow.getCell(1).fill  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF22C55E" } };
+      ws.mergeCells(1, 1, 1, COL_WIDTHS.length);
+      titleRow.height = 28;
+
+      // Group header row
+      GROUPS.forEach(({ label, start, end, bg }) => {
+        const cell = ws.getRow(2).getCell(start);
+        cell.value = label;
+        applyHeaderStyle(cell, bg);
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        if (end > start) ws.mergeCells(2, start, 2, end);
+      });
+      ws.getRow(2).height = 22;
+
+      // Column header row
+      COL_HEADERS.forEach((h, i) => {
+        const cell = ws.getRow(3).getCell(i + 1);
+        cell.value = h;
+        const grp = GROUPS.find((g) => i + 1 >= g.start && i + 1 <= g.end);
+        applyHeaderStyle(cell, grp?.bg || "FF0A1614");
+      });
+      ws.getRow(3).height = 26;
+
+      all.forEach((d, i) => buildDelegateRow(ws, d, i + 1));
+
+      // Totals row
+      const totalsRow = ws.addRow(["", "TOTAL DELEGATES: " + all.length, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+      styleTotalsRow(totalsRow);
+
+      // ── Download ───────────────────────────────────────────────────────────
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${churchName.replace(/\s+/g, "_")}_Delegates.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Export complete!", { id: tid });
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed: " + err.message, { id: tid });
+    }
+  };
+
   const stats = delegates.reduce(
     (acc, d) => {
       acc.total++;
@@ -1225,9 +1438,22 @@ const ChurchAdminDashboard = () => {
             <div className="bg-[#0A1614] border border-[#C5C5C5]/10 rounded-xl overflow-hidden">
               <div className="p-5 border-b border-[#C5C5C5]/10 flex items-center justify-between">
                 <h3 className="font-bold text-[#F1F1F1]">Encoded Delegates</h3>
-                <span className="text-[10px] font-bold text-[#C5C5C5]/40 uppercase tracking-widest">
-                  {delegates.length} total
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-[#C5C5C5]/40 uppercase tracking-widest">
+                    {delegates.length} total
+                  </span>
+                  <button
+                    onClick={handleExport}
+                    disabled={delegates.length === 0}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 font-bold text-xs hover:bg-green-500/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Export delegates to Excel"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Export Excel
+                  </button>
+                </div>
               </div>
 
               {loading ? (
