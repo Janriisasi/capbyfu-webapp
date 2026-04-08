@@ -561,20 +561,18 @@ const AdminDashboard = () => {
     const parsed = value === "" || value === null ? null : parseInt(value);
     if (parsed !== null && (isNaN(parsed) || parsed < 0)) { toast.error("Enter a valid amount"); return; }
     const updateValue = parsed;
-    // staff_discount_fee applies to ALL churches (including Visiting); reg/merch fees skip Visiting
     // Note: Supabase REST blocks unfiltered UPDATEs, so use neq on a dummy non-existent value for "all"
     const query = supabase.from("churches").update({ [field]: updateValue });
-    const { error } = (field === "staff_discount_fee" || field === "church_fee")
-      ? await query.neq("circuit", "__none__")   // matches all rows (no church has circuit "__none__")
-      : await query.neq("circuit", "Visiting");
+    const { error } = await query.neq("circuit", "__none__");   // matches all rows
     if (error) toast.error("Failed to update.");
     else {
-      const label = field === "registration_fee" ? "reg fees" : field === "merch_fee" ? "merch fees" : "staff & facilitator fees";
+      const label = field === "registration_fee" ? "reg fees" : field === "merch_fee" ? "merch fees" : field === "church_fee" ? "church fees" : "staff & facilitator fees";
       toast.success(updateValue === null ? `Staff/facilitator discount cleared (will use reg fee)` : `All ${label} set to ₱${updateValue}`);
-      setChurches((prev) => prev.map((c) => {
-        if (field === "staff_discount_fee" || field === "church_fee") return { ...c, [field]: updateValue };
-        return c.circuit !== "Visiting" ? { ...c, [field]: updateValue } : c;
-      }));
+      setChurches((prev) => prev.map((c) => ({ ...c, [field]: updateValue })));
+      setVisitingGroups((prev) => prev.map((g) => ({
+        ...g,
+        church: { ...g.church, [field]: updateValue }
+      })));
     }
   };
 
@@ -1754,6 +1752,15 @@ const AdminDashboard = () => {
 
 const BulkFeeInput = ({ label, field, defaultValue, onApply, placeholder, allowEmpty }) => {
   const [value, setValue] = useState(defaultValue ?? "");
+
+  useEffect(() => {
+    if (defaultValue !== undefined && defaultValue !== null) {
+      setValue(defaultValue);
+    } else if (allowEmpty) {
+      setValue("");
+    }
+  }, [defaultValue, allowEmpty]);
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[10px] font-bold uppercase tracking-widest text-[#C5C5C5]/50">{label}</label>
