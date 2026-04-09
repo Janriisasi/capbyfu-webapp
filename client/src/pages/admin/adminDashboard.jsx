@@ -296,6 +296,7 @@ const AdminDashboard = () => {
   const [openFeeMenu, setOpenFeeMenu] = useState(null); // church id
   const [page, setPage] = useState(0);
   const [viewerImage, setViewerImage] = useState(null); // { url, title }
+  const [deleteDelegateConfirm, setDeleteDelegateConfirm] = useState(null);
   const [globalSettings, setGlobalSettings] = useState({
     id: 1,
     registration_mode: "auto",
@@ -452,28 +453,31 @@ const AdminDashboard = () => {
   };
 
   const handleDelete = async (id) => {
-    const delegate = delegates.find(d => d.id === id) ||
-      visitingGroups.flatMap(g => g.delegates).find(d => d.id === id);
+    const delegate = id === deleteDelegateConfirm?.id ? deleteDelegateConfirm : (delegates.find(d => d.id === id) ||
+      visitingGroups.flatMap(g => g.delegates).find(d => d.id === id));
+      
     if (delegate?.payment_status === "Paid") {
       toast.error("Cannot delete a delegate with Paid status.");
       setOpenMenu(null);
       setOpenVisitMenu(null);
+      setDeleteDelegateConfirm(null);
       return;
     }
-    if (!confirm("Delete this delegate? This cannot be undone.")) return;
-    const { error } = await supabase.from("delegates").delete().eq("id", id);
+
+    const { error } = await supabase.from("delegates").delete().eq("id", delegate.id);
     if (error) {
       toast.error("Delete failed");
       return;
     }
     toast.success("Delegate deleted");
-    setDelegates((prev) => prev.filter((d) => d.id !== id));
+    setDelegates((prev) => prev.filter((d) => d.id !== delegate.id));
     setVisitingGroups((prev) =>
-      prev.map((g) => ({ ...g, delegates: g.delegates.filter((d) => d.id !== id) }))
+      prev.map((g) => ({ ...g, delegates: g.delegates.filter((d) => d.id !== delegate.id) }))
           .filter((g) => g.delegates.length > 0)
     );
     setOpenMenu(null);
     setOpenVisitMenu(null);
+    setDeleteDelegateConfirm(null);
   };
 
   const handleUpdateStatus = async (delegate, newStatus) => {
@@ -1441,7 +1445,7 @@ const AdminDashboard = () => {
                             <ContextMenu
                               delegate={d}
                               onClose={() => setOpenMenu(null)}
-                              onDelete={() => handleDelete(d.id)}
+                              onDelete={() => setDeleteDelegateConfirm(d)}
                               onUpdateStatus={handleUpdateStatus}
                             />
                           )}
@@ -1575,7 +1579,7 @@ const AdminDashboard = () => {
                                   <ContextMenu
                                     delegate={d}
                                     onClose={() => setOpenVisitMenu(null)}
-                                    onDelete={() => handleDelete(d.id)}
+                                    onDelete={() => setDeleteDelegateConfirm(d)}
                                     onUpdateStatus={handleUpdateStatus}
                                     direction="up"
                                     showDelete={false}
@@ -1590,7 +1594,7 @@ const AdminDashboard = () => {
                                   </span>
                                 ) : (
                                   <button
-                                    onClick={() => handleDelete(d.id)}
+                                    onClick={() => setDeleteDelegateConfirm(d)}
                                     className="inline-flex items-center gap-1.5 text-xs text-red-400 font-bold bg-red-500/10 px-2.5 py-1 rounded-lg hover:bg-red-500/20 transition-colors"
                                   >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1746,6 +1750,45 @@ const AdminDashboard = () => {
         title={viewerImage?.title}
         onClose={() => setViewerImage(null)}
       />
+
+      <AnimatePresence>
+        {deleteDelegateConfirm && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setDeleteDelegateConfirm(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0A1614] border border-red-500/20 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="material-symbols-outlined text-4xl text-red-500">warning</span>
+              </div>
+              <h3 className="text-2xl font-black text-[#F1F1F1] mb-2 tracking-tight">Delete Delegate?</h3>
+              <p className="text-[#C5C5C5]/60 text-sm mb-8 leading-relaxed">
+                Are you sure you want to remove <span className="text-[#F1F1F1] font-bold">{deleteDelegateConfirm.full_name}</span>? This action is permanent and cannot be reversed.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteDelegateConfirm(null)}
+                  className="flex-1 px-4 py-3 rounded-2xl border border-[#C5C5C5]/10 text-[#C5C5C5] font-black text-xs uppercase tracking-widest hover:bg-[#C5C5C5]/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(deleteDelegateConfirm.id)}
+                  className="flex-1 px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-400 text-[#010101] font-black text-xs uppercase tracking-widest transition-all shadow-[0_10px_30px_rgba(239,68,68,0.3)]"
+                >
+                  Delete Now
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
