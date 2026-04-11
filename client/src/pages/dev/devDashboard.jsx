@@ -196,9 +196,9 @@ const DevDashboard = () => {
       if (c) circMap[c] = (circMap[c] || 0) + 1;
     });
     setCircuitStats([
-      { name: "Circuit A", value: circMap.A, color: C.green },
-      { name: "Circuit B", value: circMap.B, color: C.blue },
-      { name: "Circuit C", value: circMap.C, color: C.amber },
+      { name: "Circuit A", value: circMap.A, color: C.red },
+      { name: "Circuit B", value: circMap.B, color: C.amber },
+      { name: "Circuit C", value: circMap.C, color: C.blue },
       { name: "Visiting", value: circMap.Visiting, color: C.purple },
     ]);
 
@@ -876,17 +876,17 @@ const DevDashboard = () => {
                                 className="text-[9px] font-black px-1.5 py-0.5 rounded"
                                 style={{
                                   background:
-                                    c.circuit === "A"
-                                      ? `${C.green}20`
+                                  c.circuit === "A"
+                                      ? `${C.red}20`
                                       : c.circuit === "B"
-                                        ? `${C.blue}20`
-                                        : `${C.amber}20`,
+                                        ? `${C.amber}20`
+                                        : `${C.blue}20`,
                                   color:
                                     c.circuit === "A"
-                                      ? C.green
+                                      ? C.red
                                       : c.circuit === "B"
-                                        ? C.blue
-                                        : C.amber,
+                                        ? C.amber
+                                        : C.blue,
                                 }}
                               >
                                 {c.circuit || "?"}

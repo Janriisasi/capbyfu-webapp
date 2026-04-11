@@ -2239,17 +2239,17 @@ const CHURCH_LOCATIONS = [
 
 const CIRCUIT_META = {
   A: {
-    color: "#22c55e",
+    color: "#ef4444",
     label: "Circuit A",
     count: CHURCH_LOCATIONS.filter((c) => c.circuit === "A").length,
   },
   B: {
-    color: "#38bdf8",
+    color: "#eab308",
     label: "Circuit B",
     count: CHURCH_LOCATIONS.filter((c) => c.circuit === "B").length,
   },
   C: {
-    color: "#f59e0b",
+    color: "#3b82f6",
     label: "Circuit C",
     count: CHURCH_LOCATIONS.filter((c) => c.circuit === "C").length,
   },

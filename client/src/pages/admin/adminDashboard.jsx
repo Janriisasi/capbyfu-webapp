@@ -1254,8 +1254,8 @@ const AdminDashboard = () => {
                     const maxDelegates = Math.max(...churches.map(c => stats.churchCounts?.[c.name]?.total || 0), 1);
                     const pct   = Math.min((total / maxDelegates) * 100, 100);
                     const circuitColor =
-                      church.circuit === "A" ? "#22c55e" :
-                      church.circuit === "B" ? "#38bdf8" : "#f59e0b";
+                      church.circuit === "A" ? "#ef4444" :
+                      church.circuit === "B" ? "#eab308" : "#3b82f6";
 
                     return (
                       <div key={church.id} className="space-y-1.5">
