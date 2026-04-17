@@ -1,9 +1,40 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'assets/logo.png'],
+      manifest: {
+        name: 'CapBYFU — Capiz Baptist Youth Fellowship Union',
+        short_name: 'CapBYFU',
+        description: 'Empowering the Baptist youth of Capiz through Christ-centered fellowship and transformational leadership.',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/assets/logo.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/assets/logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+      }
+    })
+  ],
   server: {
     headers: {
       'X-Frame-Options': 'DENY',
@@ -18,4 +49,4 @@ export default defineConfig({
   //     'charlyn-thankworthy-unshrewdly.ngrok-free.dev'
   //   ]
   // }
-})
+});
