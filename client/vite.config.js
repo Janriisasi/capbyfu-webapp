@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'assets/logo.png'],
+      includeAssets: ['/favicon.svg'],
       manifest: {
         name: 'CapBYFU — Capiz Baptist Youth Fellowship Union',
         short_name: 'CapBYFU',
@@ -18,12 +18,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '/assets/logo.png',
+            src: '/favicon.svg',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/assets/logo.png',
+            src: '/favicon.svg',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

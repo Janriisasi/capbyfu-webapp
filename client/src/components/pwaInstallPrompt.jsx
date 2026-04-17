@@ -69,7 +69,7 @@ export default function PwaInstallPrompt() {
             <div className="flex items-start gap-4 mb-4">
               <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-white/5 flex items-center justify-center p-1 border border-white/10">
                 <img
-                  src="/assets/logo.png"
+                  src="/favicon.svg"
                   alt="CapBYFU Logo"
                   className="w-full h-full object-contain"
                 />
