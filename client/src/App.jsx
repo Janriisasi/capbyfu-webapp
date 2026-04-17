@@ -161,10 +161,13 @@ function AppRoutes() {
   );
 }
 
+import PwaInstallPrompt from "./components/pwaInstallPrompt";
+
 export default function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <PwaInstallPrompt />
       <Toaster
         position="top-right"
         toastOptions={{
