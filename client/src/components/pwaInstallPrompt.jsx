@@ -87,7 +87,7 @@ export default function PwaInstallPrompt() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleInstallClick}
-                className="flex-1 bg-[#C5C5C5] hover:cursor-pointer text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+                className="flex-1 bg-[#C5C5C5] hover:cursor-pointer text-[#010101] font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
               >
                 <Download size={16} />
                 INSTALL NOW
