@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/authContext";
 import ClickSpark from "./components/click-animation/clickEffect";
+import { Analytics } from "@vercel/analytics/react"
 
 // Public pages
 import Navbar from "./components/navbar";
@@ -167,6 +168,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <Analytics />
       <PwaInstallPrompt />
       <Toaster
         position="top-right"
