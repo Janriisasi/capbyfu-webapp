@@ -6,12 +6,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 
 // ─── Replace with your actual Firebase config ─────────────────────────────────
 firebase.initializeApp({
-  apiKey: self.FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCiP06v8XvIeQ9J32KV7FsA3fRKaFnVK3Y",
+  authDomain: "capiz-capbyfu.firebaseapp.com",
+  projectId: "capiz-capbyfu",
+  storageBucket: "capiz-capbyfu.firebasestorage.app",
+  messagingSenderId: "235123795112",
+  appId: "1:235123795112:web:6d9f54d72be209e85f8e9d",
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -26,8 +26,8 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title || 'CapBYFU', {
     body: body || '',
-    icon: icon || '/assets/logo.png',
-    badge: '/assets/logo.png',
+    icon: icon || '/favicon.svg',
+    badge: '/favicon.svg',
     image: image || notifData.image_url || undefined,
     data: {
       url: notifData.url || '/announcements',

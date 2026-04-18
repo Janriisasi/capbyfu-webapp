@@ -58,9 +58,11 @@ export const usePushNotifications = () => {
       );
     if (error) {
       console.error('Failed to save FCM token:', error);
+      return false;
     } else {
       localStorage.setItem(LS_KEY, 'true');
       setIsSubscribed(true);
+      return true;
     }
   }, []);
 
@@ -103,9 +105,9 @@ export const usePushNotifications = () => {
 
       if (token) {
         setFcmToken(token);
-        await saveTokenToDb(token);
+        const saved = await saveTokenToDb(token);
         setLoading(false);
-        return true;
+        return saved;
       } else {
         setError('Failed to get push token. Try again.');
         setLoading(false);
@@ -129,7 +131,11 @@ export const usePushNotifications = () => {
   // This keeps the token fresh (FCM tokens can rotate) without re-prompting
   useEffect(() => {
     if (!isSupported || Notification.permission !== 'granted') return;
-    if (localStorage.getItem(LS_KEY) !== 'true') return;
+    
+    // If we have permission but no LS key, we might have reset LS or be on a new device.
+    // Sync silently.
+    const shouldRefresh = localStorage.getItem(LS_KEY) === 'true' || true; // Always sync if granted to be sure
+    if (!shouldRefresh) return;
 
     const refreshToken = async () => {
       try {
@@ -144,12 +150,17 @@ export const usePushNotifications = () => {
         if (token) {
           setFcmToken(token);
           // Upsert silently to keep token current in DB
-          await supabase
+          const { error } = await supabase
             .from('push_subscriptions')
             .upsert(
               { fcm_token: token, subscribed_at: new Date().toISOString() },
               { onConflict: 'fcm_token' }
             );
+          
+          if (!error) {
+            localStorage.setItem(LS_KEY, 'true');
+            setIsSubscribed(true);
+          }
         }
       } catch {
         // Token refresh failed silently — don't show banner again

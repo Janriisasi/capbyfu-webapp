@@ -37,7 +37,7 @@ const PushNotificationBanner = () => {
     }
   };
 
-  if (!isSupported || permission === 'denied' || (isSubscribed && !justSubscribed)) return null;
+  if (!isSupported || permission === 'denied' || permission === 'granted' || (isSubscribed && !justSubscribed)) return null;
 
   return (
     <AnimatePresence>
