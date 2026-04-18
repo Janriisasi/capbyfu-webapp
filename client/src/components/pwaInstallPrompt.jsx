@@ -1,22 +1,41 @@
 import React, { useState, useEffect } from "react";
-import { Download, X } from "lucide-react";
+import { Download, X, Share } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isIosPrompt, setIsIosPrompt] = useState(false);
 
   useEffect(() => {
+    const hasDismissed = sessionStorage.getItem("pwaDismissed");
+
+    // Check for iOS
+    const isIos = () => {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return /iphone|ipad|ipod/.test(userAgent);
+    };
+
+    // Detects if device is in standalone mode
+    const isInStandaloneMode = () => {
+      return ('standalone' in window.navigator) && window.navigator.standalone;
+    };
+
+    if (isIos() && !isInStandaloneMode()) {
+      setIsIosPrompt(true);
+      if (!hasDismissed) {
+        setIsVisible(true);
+      }
+    }
+
     const handler = (e) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
       
-      // Check if user has previously dismissed it recently in session storage
-      const hasDismissed = sessionStorage.getItem("pwaDismissed");
-      if (!hasDismissed) {
+      // If it's not iOS, we use the standard prompt
+      if (!hasDismissed && !isIos()) {
         setIsVisible(true);
       }
     };
@@ -79,24 +98,34 @@ export default function PwaInstallPrompt() {
                   Install CapBYFU App
                 </h3>
                 <p className="text-gray-400 text-xs leading-relaxed">
-                  Add to your home screen for fast access and offline support.
+                  {isIosPrompt ? (
+                    <>
+                      To install on iOS: Tap the <Share size={12} className="inline mb-[2px]" /> Share button below and select <strong className="text-white">"Add to Home Screen"</strong>.
+                    </>
+                  ) : (
+                    "Add to your home screen for fast access and offline support."
+                  )}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleInstallClick}
-                className="flex-1 bg-[#C5C5C5] hover:cursor-pointer text-[#010101] font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
-              >
-                <Download size={16} />
-                INSTALL NOW
-              </button>
+              {!isIosPrompt ? (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex-1 bg-[#C5C5C5] hover:cursor-pointer text-[#010101] font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+                >
+                  <Download size={16} />
+                  INSTALL NOW
+                </button>
+              ) : null}
               <button
                 onClick={handleClose}
-                className="text-[#C5C5C5] hover:cursor-pointer hover:text-white text-sm font-medium px-4 py-2.5 transition-colors"
+                className={`text-[#C5C5C5] hover:cursor-pointer hover:text-white text-sm font-medium px-4 py-2.5 transition-colors ${
+                  isIosPrompt ? "w-full bg-white/10 rounded-xl hover:bg-white/20" : ""
+                }`}
               >
-                Later
+                {isIosPrompt ? "Got it" : "Later"}
               </button>
             </div>
           </div>
