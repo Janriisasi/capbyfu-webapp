@@ -31,11 +31,14 @@ import DevGuard     from "./pages/dev/devGuard";
 
 import { useAuth } from "./context/authContext";
 
+import PushNotificationBanner from "./components/pushNotificationBanner";
+
 const PublicLayout = ({ children }) => (
   <div className="min-h-screen bg-[#010101] text-[#F1F1F1]">
     <Navbar />
     {children}
     <Footer />
+    <PushNotificationBanner />
   </div>
 );
 
