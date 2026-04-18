@@ -4,8 +4,28 @@ import { useState, useEffect, useCallback } from 'react';
 import { messaging, getToken, onMessage } from '../lib/firebase';
 import { supabase } from '../lib/supabase';
 
-// Get this from: Firebase Console → Project Settings → Cloud Messaging → Web Push Certificates → Key pair
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+const LS_KEY = 'push-subscribed'; // localStorage key to persist subscription state
+
+// ─── Always use the same SW registration ─────────────────────────────────────
+const getSWRegistration = async () => {
+  // Wait for SW to be ready (handles page refresh timing)
+  if ('serviceWorker' in navigator) {
+    try {
+      // Try to get existing registration first
+      const existing = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+      if (existing) return existing;
+
+      // Register fresh if not found
+      return await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+    } catch (err) {
+      console.error('SW registration failed:', err);
+      return null;
+    }
+  }
+  return null;
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const usePushNotifications = () => {
   const [permission, setPermission] = useState(
@@ -14,41 +34,46 @@ export const usePushNotifications = () => {
       : 'default'
   );
   const [fcmToken, setFcmToken] = useState(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // ── Read persisted subscription from localStorage on init ──────────────────
+  const [isSubscribed, setIsSubscribed] = useState(
+    () => localStorage.getItem(LS_KEY) === 'true'
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Check if browser supports notifications
   const isSupported =
     typeof window !== 'undefined' &&
     'Notification' in window &&
     'serviceWorker' in navigator &&
     messaging !== null;
 
-  // ── Save FCM token to Supabase ──────────────────────────────────────────────
+  // ── Save token to Supabase + localStorage ──────────────────────────────────
   const saveTokenToDb = useCallback(async (token) => {
     if (!token) return;
-
-    // Upsert: store unique tokens so we can broadcast to all subscribers
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert(
         { fcm_token: token, subscribed_at: new Date().toISOString() },
         { onConflict: 'fcm_token' }
       );
-
-    if (error) console.error('Failed to save FCM token:', error);
-    else setIsSubscribed(true);
+    if (error) {
+      console.error('Failed to save FCM token:', error);
+    } else {
+      localStorage.setItem(LS_KEY, 'true');
+      setIsSubscribed(true);
+    }
   }, []);
 
-  // ── Remove FCM token from Supabase ─────────────────────────────────────────
+  // ── Remove token from Supabase + localStorage ──────────────────────────────
   const removeTokenFromDb = useCallback(async (token) => {
     if (!token) return;
     await supabase.from('push_subscriptions').delete().eq('fcm_token', token);
+    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem('push-banner-dismissed');
     setIsSubscribed(false);
   }, []);
 
-  // ── Request permission & get FCM token ─────────────────────────────────────
+  // ── Subscribe ──────────────────────────────────────────────────────────────
   const subscribe = useCallback(async () => {
     if (!isSupported) {
       setError('Push notifications not supported in this browser.');
@@ -59,7 +84,6 @@ export const usePushNotifications = () => {
     setError(null);
 
     try {
-      // Request notification permission
       const result = await Notification.requestPermission();
       setPermission(result);
 
@@ -69,12 +93,9 @@ export const usePushNotifications = () => {
         return false;
       }
 
-      // Register the FCM service worker
-      const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/',
-      });
+      const swReg = await getSWRegistration();
+      if (!swReg) throw new Error('Service worker registration failed.');
 
-      // Get FCM token
       const token = await getToken(messaging, {
         vapidKey: VAPID_KEY,
         serviceWorkerRegistration: swReg,
@@ -98,21 +119,52 @@ export const usePushNotifications = () => {
     }
   }, [isSupported, saveTokenToDb]);
 
-  // ── Unsubscribe ─────────────────────────────────────────────────────────────
+  // ── Unsubscribe ────────────────────────────────────────────────────────────
   const unsubscribe = useCallback(async () => {
     if (fcmToken) await removeTokenFromDb(fcmToken);
     setFcmToken(null);
-    setIsSubscribed(false);
   }, [fcmToken, removeTokenFromDb]);
 
-  // ── Listen for foreground messages ─────────────────────────────────────────
+  // ── On mount: if localStorage says subscribed, silently re-fetch the token ─
+  // This keeps the token fresh (FCM tokens can rotate) without re-prompting
+  useEffect(() => {
+    if (!isSupported || Notification.permission !== 'granted') return;
+    if (localStorage.getItem(LS_KEY) !== 'true') return;
+
+    const refreshToken = async () => {
+      try {
+        const swReg = await getSWRegistration();
+        if (!swReg) return;
+
+        const token = await getToken(messaging, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: swReg,
+        });
+
+        if (token) {
+          setFcmToken(token);
+          // Upsert silently to keep token current in DB
+          await supabase
+            .from('push_subscriptions')
+            .upsert(
+              { fcm_token: token, subscribed_at: new Date().toISOString() },
+              { onConflict: 'fcm_token' }
+            );
+        }
+      } catch {
+        // Token refresh failed silently — don't show banner again
+      }
+    };
+
+    refreshToken();
+  }, [isSupported]);
+
+  // ── Foreground message listener ────────────────────────────────────────────
   useEffect(() => {
     if (!messaging) return;
 
     const unsubForeground = onMessage(messaging, (payload) => {
       console.log('[FCM] Foreground message:', payload);
-
-      // Show a native notification even when app is open
       if (Notification.permission === 'granted') {
         const { title, body, icon } = payload.notification || {};
         new Notification(title || 'CapBYFU', {
@@ -126,39 +178,6 @@ export const usePushNotifications = () => {
 
     return () => unsubForeground();
   }, []);
-
-  // ── Check existing subscription on mount ───────────────────────────────────
-  useEffect(() => {
-    const checkExisting = async () => {
-      if (!isSupported || Notification.permission !== 'granted') return;
-
-      try {
-        const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-        if (!swReg) return;
-
-        const token = await getToken(messaging, {
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: swReg,
-        });
-
-        if (token) {
-          setFcmToken(token);
-          // Check if this token is actually in our DB
-          const { data } = await supabase
-            .from('push_subscriptions')
-            .select('fcm_token')
-            .eq('fcm_token', token)
-            .single();
-
-          if (data) setIsSubscribed(true);
-        }
-      } catch {
-        // Not subscribed — that's fine
-      }
-    };
-
-    checkExisting();
-  }, [isSupported]);
 
   return {
     isSupported,
