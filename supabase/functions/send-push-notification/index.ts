@@ -10,6 +10,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ─── CORS headers — must include x-client-info for Supabase client ───────────
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Google OAuth2 token via service account (no Firebase Admin SDK needed) ──
 async function getGoogleAccessToken(serviceAccount: Record<string, string>): Promise<string> {
@@ -22,14 +29,12 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>): Pro
     iat: now,
   };
 
-  // Create JWT header + payload
   const header = { alg: "RS256", typ: "JWT" };
   const encode = (obj: object) =>
     btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 
   const signingInput = `${encode(header)}.${encode(payload)}`;
 
-  // Import private key
   const pemKey = serviceAccount.private_key.replace(/\\n/g, "\n");
   const binaryKey = Uint8Array.from(
     atob(pemKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, "")),
@@ -43,7 +48,6 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>): Pro
     ["sign"]
   );
 
-  // Sign
   const signature = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     key,
@@ -54,7 +58,6 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>): Pro
 
   const jwt = `${signingInput}.${sigB64}`;
 
-  // Exchange JWT for access token
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -66,14 +69,9 @@ async function getGoogleAccessToken(serviceAccount: Record<string, string>): Pro
 
 // @ts-ignore
 serve(async (req: Request) => {
-  // ── CORS ──
+  // ── Handle CORS preflight ──────────────────────────────────────────────────
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, content-type",
-      },
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -94,7 +92,7 @@ serve(async (req: Request) => {
     if (dbError) throw dbError;
     if (!subscribers || subscribers.length === 0) {
       return new Response(JSON.stringify({ sent: 0, message: "No subscribers" }), {
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -117,8 +115,8 @@ serve(async (req: Request) => {
             notification: {
               title,
               body,
-              icon: "/assets/logo.png",
-              badge: "/assets/logo.png",
+              icon: "/favicon.svg",
+              badge: "/favicon.svg",
               ...(image_url ? { image: image_url } : {}),
             },
             fcm_options: {
@@ -142,7 +140,6 @@ serve(async (req: Request) => {
 
         if (!res.ok) {
           const errData = await res.json();
-          // Remove invalid/expired tokens from DB
           if (
             errData?.error?.details?.some((d: { errorCode: string }) =>
               ["UNREGISTERED", "INVALID_ARGUMENT"].includes(d.errorCode)
@@ -166,17 +163,14 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ sent, failed, total: subscribers.length }),
       {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (err: any) {
     console.error("send-push-notification error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
