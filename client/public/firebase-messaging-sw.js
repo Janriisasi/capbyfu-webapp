@@ -1,10 +1,16 @@
 // public/firebase-messaging-sw.js
-// Place this file in your /public folder (root of your project)
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPORTANT: This file must live at the ROOT of your /public folder so it is
+// served at https://yourdomain.com/firebase-messaging-sw.js
+//
+// IMPORTANT: You CANNOT use import.meta.env here — service workers don't have
+// access to Vite's env. Paste your Firebase config values directly below.
+// ─────────────────────────────────────────────────────────────────────────────
 
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-// ─── Replace with your actual Firebase config ─────────────────────────────────
+// ── Paste your Firebase project config here (from Firebase Console) ───────────
 firebase.initializeApp({
   apiKey: "AIzaSyCiP06v8XvIeQ9J32KV7FsA3fRKaFnVK3Y",
   authDomain: "capiz-capbyfu.firebaseapp.com",
@@ -17,52 +23,49 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages (when app is closed / not in focus)
+// ── Background message handler ────────────────────────────────────────────────
+// This fires when your app is in the background or closed.
+// For foreground messages, see the onMessage() call in usePushNotifications.js
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background message received:', payload);
 
-  const { title, body, icon, image, data } = payload.notification || {};
-  const notifData = payload.data || {};
+  const { title, body, icon, image } = payload.notification || {};
+  const data = payload.data || {};
 
-  self.registration.showNotification(title || 'CapBYFU', {
+  const notificationOptions = {
     body: body || '',
     icon: icon || '/favicon.svg',
     badge: '/favicon.svg',
-    image: image || notifData.image_url || undefined,
+    image: image || data.image_url || undefined,
     data: {
-      url: notifData.url || '/announcements',
-      ...notifData,
+      url: data.url || '/announcements',
     },
-    actions: [
-      { action: 'view', title: 'View' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-    vibrate: [100, 50, 100],
-    tag: notifData.id || 'capbyfu-announcement',
-    renotify: true,
-  });
+    // Vibrate pattern for mobile
+    vibrate: [200, 100, 200],
+  };
+
+  self.registration.showNotification(title || 'CapBYFU', notificationOptions);
 });
 
-// Clicking notification opens the correct page
+// ── Handle notification click ─────────────────────────────────────────────────
+// When the user taps the notification, open the correct page
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  if (event.action === 'dismiss') return;
 
   const targetUrl = event.notification.data?.url || '/announcements';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Focus existing tab if open
+      // If a window is already open, focus it and navigate
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          client.navigate(targetUrl);
-          return;
+        if (client.url === targetUrl && 'focus' in client) {
+          return client.focus();
         }
       }
-      // Otherwise open new tab
-      if (clients.openWindow) return clients.openWindow(targetUrl);
+      // Otherwise open a new tab
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
     })
   );
 });

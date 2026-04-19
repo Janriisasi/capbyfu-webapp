@@ -9,15 +9,17 @@ const LS_KEY = 'push-subscribed'; // localStorage key to persist subscription st
 
 // ─── Always use the same SW registration ─────────────────────────────────────
 const getSWRegistration = async () => {
-  // Wait for SW to be ready (handles page refresh timing)
   if ('serviceWorker' in navigator) {
     try {
-      // Try to get existing registration first
+      // Wait for any existing SW to be ready first
       const existing = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
       if (existing) return existing;
 
       // Register fresh if not found
-      return await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      // Wait until the SW is active before returning
+      await navigator.serviceWorker.ready;
+      return reg;
     } catch (err) {
       console.error('SW registration failed:', err);
       return null;
@@ -49,7 +51,7 @@ export const usePushNotifications = () => {
 
   // ── Save token to Supabase + localStorage ──────────────────────────────────
   const saveTokenToDb = useCallback(async (token) => {
-    if (!token) return;
+    if (!token) return false;
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert(
@@ -127,20 +129,20 @@ export const usePushNotifications = () => {
     setFcmToken(null);
   }, [fcmToken, removeTokenFromDb]);
 
-  // ── On mount: if localStorage says subscribed, silently re-fetch the token ─
-  // This keeps the token fresh (FCM tokens can rotate) without re-prompting
+  // ── On mount: if permission is already granted, silently re-fetch the token ─
+  // This handles: new device, cleared localStorage, or token rotation by FCM
   useEffect(() => {
-    if (!isSupported || Notification.permission !== 'granted') return;
-    
-    // If we have permission but no LS key, we might have reset LS or be on a new device.
-    // Sync silently.
-    const shouldRefresh = localStorage.getItem(LS_KEY) === 'true' || true; // Always sync if granted to be sure
-    if (!shouldRefresh) return;
+    if (!isSupported) return;
+    // Only refresh if the browser already has permission — no prompt needed
+    if (Notification.permission !== 'granted') return;
 
     const refreshToken = async () => {
       try {
         const swReg = await getSWRegistration();
-        if (!swReg) return;
+        if (!swReg) {
+          console.warn('[FCM] SW not available for token refresh');
+          return;
+        }
 
         const token = await getToken(messaging, {
           vapidKey: VAPID_KEY,
@@ -156,14 +158,20 @@ export const usePushNotifications = () => {
               { fcm_token: token, subscribed_at: new Date().toISOString() },
               { onConflict: 'fcm_token' }
             );
-          
+
           if (!error) {
             localStorage.setItem(LS_KEY, 'true');
             setIsSubscribed(true);
+            console.log('[FCM] Token refreshed and saved to DB');
+          } else {
+            console.error('[FCM] Token upsert error:', error);
           }
+        } else {
+          console.warn('[FCM] No token returned during refresh');
         }
-      } catch {
+      } catch (err) {
         // Token refresh failed silently — don't show banner again
+        console.warn('[FCM] Token refresh failed silently:', err.message);
       }
     };
 

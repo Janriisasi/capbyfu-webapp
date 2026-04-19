@@ -11,10 +11,20 @@ const PushNotificationBanner = () => {
   const [visible, setVisible] = useState(false);
   const [justSubscribed, setJustSubscribed] = useState(false);
 
+  // ── If permission was already granted (e.g. via browser settings) but no
+  //    token is saved in DB, silently subscribe to save the token ────────────
+  useEffect(() => {
+    if (permission === 'granted' && !isSubscribed && isSupported) {
+      subscribe();
+    }
+  }, [permission, isSubscribed, isSupported]);
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Show banner after 5s — delayed so PWA prompt appears first (PWA shows immediately)
   useEffect(() => {
     if (!isSupported) return;
     if (permission === 'denied') return;
+    if (permission === 'granted') return; // already handled above silently
     if (isSubscribed) return;
 
     const wasDismissed = localStorage.getItem('push-banner-dismissed');
@@ -37,7 +47,14 @@ const PushNotificationBanner = () => {
     }
   };
 
-  if (!isSupported || permission === 'denied' || permission === 'granted' || (isSubscribed && !justSubscribed)) return null;
+  // Don't render if: unsupported, denied, already subscribed (and not just now), or granted (silent subscribe handles it)
+  if (
+    !isSupported ||
+    permission === 'denied' ||
+    permission === 'granted' ||
+    (isSubscribed && !justSubscribed)
+  )
+    return null;
 
   return (
     <AnimatePresence>
