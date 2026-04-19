@@ -2,11 +2,15 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // ── Use custom SW so we can merge FCM into the PWA SW ──────────────────
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      // ───────────────────────────────────────────────────────────────────────
       registerType: 'autoUpdate',
       includeAssets: ['/favicon.svg'],
       manifest: {
@@ -31,7 +35,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       }
     })
   ],
@@ -43,10 +47,4 @@ export default defineConfig({
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     },
   },
-  // server: {
-  //   port: 8080,
-  //   allowedHosts: [
-  //     'charlyn-thankworthy-unshrewdly.ngrok-free.dev'
-  //   ]
-  // }
 });

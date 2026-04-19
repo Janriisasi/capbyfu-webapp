@@ -7,20 +7,6 @@ import { supabase } from '../lib/supabase';
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 const LS_KEY = 'push-subscribed';
 
-// ─── Wait for SW to be fully active before requesting token ──────────────────
-const getSWRegistration = async () => {
-  if (!('serviceWorker' in navigator)) return null;
-  try {
-    // Always use ready — guarantees SW is active, not just registered
-    const readyReg = await navigator.serviceWorker.ready;
-    return readyReg;
-  } catch (err) {
-    console.error('[FCM] SW ready failed:', err);
-    return null;
-  }
-};
-// ─────────────────────────────────────────────────────────────────────────────
-
 export const usePushNotifications = () => {
   const [permission, setPermission] = useState(
     typeof window !== 'undefined' && 'Notification' in window
@@ -34,7 +20,6 @@ export const usePushNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ── Lock to prevent simultaneous token requests ───────────────────────────
   const tokenRequestInProgress = useRef(false);
 
   const isSupported =
@@ -43,7 +28,6 @@ export const usePushNotifications = () => {
     'serviceWorker' in navigator &&
     messaging !== null;
 
-  // ── Save token to Supabase + localStorage ─────────────────────────────────
   const saveTokenToDb = useCallback(async (token) => {
     if (!token) return false;
     const { error } = await supabase
@@ -58,11 +42,10 @@ export const usePushNotifications = () => {
     }
     localStorage.setItem(LS_KEY, 'true');
     setIsSubscribed(true);
-    console.log('[FCM] Token saved to DB successfully');
+    console.log('[FCM] Token saved successfully');
     return true;
   }, []);
 
-  // ── Remove token from Supabase + localStorage ─────────────────────────────
   const removeTokenFromDb = useCallback(async (token) => {
     if (!token) return;
     await supabase.from('push_subscriptions').delete().eq('fcm_token', token);
@@ -71,20 +54,17 @@ export const usePushNotifications = () => {
     setIsSubscribed(false);
   }, []);
 
-  // ── Core token fetch — shared by subscribe() and silent refresh ───────────
   const fetchAndSaveToken = useCallback(async () => {
-    // Prevent simultaneous calls racing each other
     if (tokenRequestInProgress.current) {
-      console.log('[FCM] Token request already in progress, skipping');
+      console.log('[FCM] Already in progress, skipping');
       return false;
     }
     tokenRequestInProgress.current = true;
 
     try {
-      const swReg = await getSWRegistration();
-      if (!swReg) throw new Error('Service worker not ready');
-
-      console.log('[FCM] SW is ready, requesting token...');
+      // Use the already-registered PWA SW — it now includes FCM messaging
+      const swReg = await navigator.serviceWorker.ready;
+      console.log('[FCM] Using SW:', swReg.active?.scriptURL);
 
       const token = await getToken(messaging, {
         vapidKey: VAPID_KEY,
@@ -92,11 +72,11 @@ export const usePushNotifications = () => {
       });
 
       if (!token) {
-        console.warn('[FCM] No token returned from getToken()');
+        console.warn('[FCM] No token returned');
         return false;
       }
 
-      console.log('[FCM] Got token:', token.substring(0, 20) + '...');
+      console.log('[FCM] Token:', token.substring(0, 20) + '...');
       setFcmToken(token);
       return await saveTokenToDb(token);
     } catch (err) {
@@ -107,7 +87,6 @@ export const usePushNotifications = () => {
     }
   }, [saveTokenToDb]);
 
-  // ── Subscribe (user-initiated via banner button) ──────────────────────────
   const subscribe = useCallback(async () => {
     if (!isSupported) {
       setError('Push notifications not supported in this browser.');
@@ -138,27 +117,23 @@ export const usePushNotifications = () => {
     }
   }, [isSupported, fetchAndSaveToken]);
 
-  // ── Unsubscribe ───────────────────────────────────────────────────────────
   const unsubscribe = useCallback(async () => {
     if (fcmToken) await removeTokenFromDb(fcmToken);
     setFcmToken(null);
   }, [fcmToken, removeTokenFromDb]);
 
-  // ── On mount: silently refresh token if permission already granted ─────────
-  // 2s delay lets the SW fully activate after page load before requesting token
   useEffect(() => {
     if (!isSupported) return;
     if (Notification.permission !== 'granted') return;
 
     const timer = setTimeout(async () => {
-      console.log('[FCM] Silently refreshing token on mount...');
+      console.log('[FCM] Silent token refresh on mount...');
       await fetchAndSaveToken();
     }, 2000);
 
     return () => clearTimeout(timer);
   }, [isSupported, fetchAndSaveToken]);
 
-  // ── Foreground message listener ───────────────────────────────────────────
   useEffect(() => {
     if (!messaging) return;
 
@@ -168,8 +143,8 @@ export const usePushNotifications = () => {
         const { title, body, icon } = payload.notification || {};
         new Notification(title || 'CapBYFU', {
           body,
-          icon: icon || '/assets/logo.png',
-          badge: '/assets/logo.png',
+          icon: icon || '/favicon.svg',
+          badge: '/favicon.svg',
           data: payload.data,
         });
       }
